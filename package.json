@@ -1,0 +1,11 @@
+
+
+{
+"name": "beyond-the-bell",
+"version": "1.0.0",
+"private": true,
+"description": "A 2D browser game built with Phaser 3 - a middle schooler escapes into a fantasy world through a hallway portal.",
+"scripts": {
+"start": "npx serve ."
+}
+}
