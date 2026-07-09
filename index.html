@@ -2,14 +2,96 @@
 <html>
 <head>
     <title>Banana Quest</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
     <style>
-        body { margin: 0; background: #87ceeb; overflow: hidden; font-family: Arial; }
-        canvas { display: block; margin: auto; background: linear-gradient(#7dd8ff, #dff7ff); }
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: #87ceeb;
+            overflow: hidden;
+            font-family: Arial;
+            touch-action: none;
+        }
+
+        #gameWrapper {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            background: linear-gradient(#7dd8ff, #dff7ff);
+            max-width: 100vw;
+            max-height: 100vh;
+            width: 100vw;
+            height: auto;
+        }
+
+        #mobileControls {
+            position: fixed;
+            bottom: 18px;
+            left: 0;
+            right: 0;
+            display: none;
+            justify-content: space-between;
+            padding: 0 24px;
+            pointer-events: none;
+        }
+
+        .controlGroup {
+            display: flex;
+            gap: 14px;
+            pointer-events: auto;
+        }
+
+        .mobileBtn {
+            width: 68px;
+            height: 68px;
+            border-radius: 50%;
+            border: 4px solid #222;
+            background: rgba(255,255,255,0.75);
+            font-size: 30px;
+            font-weight: bold;
+            color: #222;
+            touch-action: none;
+            user-select: none;
+        }
+
+        .mobileBtn:active {
+            background: #ffd54f;
+            transform: scale(0.95);
+        }
+
+        @media (hover: none), (pointer: coarse) {
+            #mobileControls {
+                display: flex;
+            }
+        }
     </style>
 </head>
+
 <body>
 
-<canvas id="gameCanvas" width="1000" height="600"></canvas>
+<div id="gameWrapper">
+    <canvas id="gameCanvas" width="1000" height="600"></canvas>
+
+    <div id="mobileControls">
+        <div class="controlGroup">
+            <button class="mobileBtn" data-key="ArrowLeft">◀</button>
+            <button class="mobileBtn" data-key="ArrowRight">▶</button>
+        </div>
+
+        <div class="controlGroup">
+            <button class="mobileBtn" data-key="Space">⤴</button>
+            <button class="mobileBtn" data-key="Enter">▶</button>
+        </div>
+    </div>
+</div>
 
 <script>
     const canvas = document.getElementById("gameCanvas");
@@ -64,6 +146,78 @@
 
     window.addEventListener("keyup", e => {
         keys[e.code] = false;
+    });
+
+    canvas.addEventListener("touchstart", e => {
+        e.preventDefault();
+
+        if (gameState === "start") {
+            startGame();
+        }
+
+        if (gameState === "gameOver") {
+            lives = 3;
+            startGame();
+        }
+    });
+
+    canvas.addEventListener("click", () => {
+        if (gameState === "start") {
+            startGame();
+        }
+
+        if (gameState === "gameOver") {
+            lives = 3;
+            startGame();
+        }
+    });
+
+    document.querySelectorAll(".mobileBtn").forEach(button => {
+        const key = button.dataset.key;
+
+        button.addEventListener("touchstart", e => {
+            e.preventDefault();
+
+            if (key === "Enter") {
+                if (gameState === "start") {
+                    startGame();
+                } else if (gameState === "gameOver") {
+                    lives = 3;
+                    startGame();
+                }
+            } else {
+                keys[key] = true;
+            }
+        });
+
+        button.addEventListener("touchend", e => {
+            e.preventDefault();
+            keys[key] = false;
+        });
+
+        button.addEventListener("mousedown", e => {
+            e.preventDefault();
+
+            if (key === "Enter") {
+                if (gameState === "start") {
+                    startGame();
+                } else if (gameState === "gameOver") {
+                    lives = 3;
+                    startGame();
+                }
+            } else {
+                keys[key] = true;
+            }
+        });
+
+        button.addEventListener("mouseup", e => {
+            e.preventDefault();
+            keys[key] = false;
+        });
+
+        button.addEventListener("mouseleave", () => {
+            keys[key] = false;
+        });
     });
 
     function startGame() {
@@ -386,7 +540,7 @@
         ctx.fillText("Lives left: " + lives, 430, 345);
 
         ctx.font = "bold 26px Arial";
-        ctx.fillText("Press ENTER to Start", 365, 395);
+        ctx.fillText("Press ENTER or Tap Start", 345, 395);
     }
 
     function drawGameOverScreen() {
@@ -404,7 +558,7 @@
         ctx.fillText("You ran out of lives.", 390, 300);
 
         ctx.font = "bold 26px Arial";
-        ctx.fillText("Press ENTER to Try Again", 345, 360);
+        ctx.fillText("Press ENTER or Tap Start", 335, 360);
     }
 
     function drawText() {
