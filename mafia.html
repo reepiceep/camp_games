@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent vs Mafia - Persistent Upgrades</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #090d14;
+      font-family: Arial, Helvetica, sans-serif;
+      user-select: none;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      cursor: crosshair;
+    }
+    #help {
+      position: fixed;
+      left: 14px;
+      bottom: 10px;
+      z-index: 2;
+      color: rgba(255,255,255,.9);
+      font-size: 14px;
+      pointer-events: none;
+      text-shadow: 0 2px 5px #000;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div id="help">
+    Move: A/D or ←/→ &nbsp; Jump: W, ↑, or Space &nbsp;
+    Aim: Mouse &nbsp; Shoot: Click &nbsp; Walk over drops to collect them &nbsp; Use medkit: E &nbsp; Restart level: R
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+
+  let W = 1280;
+  let H = 720;
+  let dpr = 1;
+
+  const keys = Object.create(null);
+  const mouse = { x: 800, y: 300, down: false };
+
+  const bullets = [];
+  const enemyBullets = [];
+  const enemies = [];
+  const particles = [];
+  const platforms = [];
+  const weaponDrops = [];
+
+  const WEAPONS = {
+    pistol: {
+      name: "PISTOL",
+      fireRate: 0.30,
+      damage: 1,
+      pellets: 1,
+      spread: 0,
+      bulletSpeed: 860
+    },
+    smg: {
+      name: "SMG",
+      fireRate: 0.095,
+      damage: 1,
+      pellets: 1,
+      spread: 0.045,
+      bulletSpeed: 920
+    },
+    shotgun: {
+      name: "SHOTGUN",
+      fireRate: 0.58,
+      damage: 1,
+      pellets: 6,
+      spread: 0.34,
+      bulletSpeed: 790
+    },
+    rifle: {
+      name: "RIFLE",
+      fireRate: 0.19,
+      damage: 2,
+      pellets: 1,
+      spread: 0.018,
+      bulletSpeed: 1160
+    },
+    sniper: {
+      name: "SNIPER",
+      fireRate: 0.82,
+      damage: 6,
+      pellets: 1,
+      spread: 0,
+      bulletSpeed: 1550
+    }
+  };
+
+  let boss = null;
+  let score = 0;
+  let currentLevel = 0;
+  let gameOver = false;
+  let gameWon = false;
+  let transitionTimer = 0;
+  let transitionText = "";
+  let screenShake = 0;
+  let levelStartScore = 0;
+  let levelStartWeapon = "pistol";
+  let levelStartHp = 120;
+  let levelStartMaxHp = 120;
+  let levelStartFireRateMultiplier = 1;
+  let levelStartHealthUpgrades = 0;
+  let levelStartFireRateUpgrades = 0;
+  let levelStartMedkits = 0;
+  let bannerSubtext = "";
+  let pickupMessage = "";
+  let pickupMessageTimer = 0;
+
+  const player = {
+    x: 0,
+    y: 0,
+    w: 40,
+    h: 58,
+    vx: 0,
+    vy: 0,
+    speed: 335,
+    jumpPower: 735,
+    onGround: false,
+    hp: 120,
+    maxHp: 120,
+    fireCooldown: 0,
+    hurtTimer: 0,
+    weapon: "pistol",
+    fireRateMultiplier: 1,
+    healthUpgrades: 0,
+    fireRateUpgrades: 0,
+    medkits: 0
+  };
+
+  const LEVELS = [
+    {
+      name: "DOCKSIDE RAID",
+      type: "normal",
+      skyTop: "#263d65",
+      skyBottom: "#111827",
+      start: [0.06, 0.77],
+      exit: [0.91, 0.68],
+      blocks: [
+        [0.00, 0.88, 1.00, 0.12],
+        [0.15, 0.70, 0.19, 0.055],
+        [0.44, 0.57, 0.19, 0.055],
+        [0.73, 0.72, 0.15, 0.055]
+      ],
+      enemies: [
+        [0.25, 1, "pistol", "sniper"],
+        [0.79, 3, "tommy", "medkit"]
+      ]
+    },
+    {
+      name: "MAFIA BLOCK",
+      type: "normal",
+      skyTop: "#40335e",
+      skyBottom: "#171321",
+      start: [0.05, 0.77],
+      exit: [0.91, 0.20],
+      blocks: [
+        [0.00, 0.88, 1.00, 0.12],
+        [0.12, 0.73, 0.18, 0.055],
+        [0.37, 0.58, 0.16, 0.055],
+        [0.59, 0.43, 0.16, 0.055],
+        [0.80, 0.26, 0.15, 0.055],
+        [0.56, 0.74, 0.12, 0.055]
+      ],
+      enemies: [
+        [0.20, 1, "pistol", "health_upgrade"],
+        [0.65, 3, "pistol", "fire_rate_upgrade"],
+        [0.86, 4, "tommy"]
+      ]
+    },
+    {
+      name: "THE WAREHOUSE",
+      type: "normal",
+      skyTop: "#5a3828",
+      skyBottom: "#1c1310",
+      start: [0.05, 0.77],
+      exit: [0.91, 0.68],
+      blocks: [
+        [0.00, 0.88, 1.00, 0.12],
+        [0.07, 0.62, 0.20, 0.055],
+        [0.36, 0.73, 0.17, 0.055],
+        [0.40, 0.43, 0.19, 0.055],
+        [0.68, 0.61, 0.20, 0.055],
+        [0.78, 0.32, 0.16, 0.055],
+        [0.24, 0.25, 0.14, 0.055]
+      ],
+      enemies: [
+        [0.17, 1, "pistol"],
+        [0.48, 3, "tommy"],
+        [0.77, 4, "pistol"],
+        [0.86, 5, "tommy"]
+      ]
+    },
+    {
+      name: "THE DON'S PENTHOUSE",
+      type: "boss",
+      skyTop: "#271f35",
+      skyBottom: "#0d0c13",
+      start: [0.06, 0.77],
+      exit: [0.91, 0.68],
+      blocks: [
+        [0.00, 0.88, 1.00, 0.12],
+        [0.13, 0.67, 0.18, 0.055],
+        [0.41, 0.55, 0.18, 0.055],
+        [0.70, 0.67, 0.18, 0.055]
+      ],
+      enemies: [
+        [0.20, 1, "pistol"]
+      ]
+    }
+  ];
+
+  function resize() {
+    dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    if (!gameOver && !gameWon) {
+      loadLevel(currentLevel, false);
+    }
+  }
+
+  window.addEventListener("resize", resize);
+
+  window.addEventListener("keydown", (e) => {
+    keys[e.key.toLowerCase()] = true;
+
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) {
+      e.preventDefault();
+    }
+
+    if (e.key.toLowerCase() === "e") {
+      useMedkit();
+    }
+
+    if (e.key.toLowerCase() === "r") {
+      if (gameWon) {
+        score = 0;
+        currentLevel = 0;
+        gameWon = false;
+        player.weapon = "pistol";
+        player.maxHp = 120;
+        player.hp = 120;
+        player.fireRateMultiplier = 1;
+        player.healthUpgrades = 0;
+        player.fireRateUpgrades = 0;
+        player.medkits = 0;
+        loadLevel(0, true);
+      } else {
+        score = levelStartScore;
+        player.weapon = levelStartWeapon;
+        player.hp = levelStartHp;
+        player.maxHp = levelStartMaxHp;
+        player.fireRateMultiplier = levelStartFireRateMultiplier;
+        player.healthUpgrades = levelStartHealthUpgrades;
+        player.fireRateUpgrades = levelStartFireRateUpgrades;
+        player.medkits = levelStartMedkits;
+        loadLevel(currentLevel, true);
+      }
+    }
+  });
+
+  window.addEventListener("keyup", (e) => {
+    keys[e.key.toLowerCase()] = false;
+  });
+
+  canvas.addEventListener("mousemove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+  });
+
+  canvas.addEventListener("mousedown", () => { mouse.down = true; });
+  window.addEventListener("mouseup", () => { mouse.down = false; });
+  canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function overlap(a, b) {
+    return (
+      a.x < b.x + b.w &&
+      a.x + a.w > b.x &&
+      a.y < b.y + b.h &&
+      a.y + a.h > b.y
+    );
+  }
+
+  function pointInRect(x, y, rect) {
+    return (
+      x >= rect.x &&
+      x <= rect.x + rect.w &&
+      y >= rect.y &&
+      y <= rect.y + rect.h
+    );
+  }
+
+  function rectFromNormalized(data) {
+    return {
+      x: data[0] * W,
+      y: data[1] * H,
+      w: data[2] * W,
+      h: Math.max(22, data[3] * H)
+    };
+  }
+
+  function getExitRect() {
+    const level = LEVELS[currentLevel];
+    return {
+      x: level.exit[0] * W,
+      y: level.exit[1] * H,
+      w: 52,
+      h: 76
+    };
+  }
+
+  function createMafiaEnemy(xFraction, platformIndex, weapon, forcedDrop = null) {
+    const platform = platforms[platformIndex];
+    const size = 44;
+
+    return {
+      x: xFraction * W,
+      y: platform.y - size,
+      w: size,
+      h: size,
+      vx: 0,
+      hp: weapon === "tommy" ? 3 : 2,
+      maxHp: weapon === "tommy" ? 3 : 2,
+      speed: 52 + currentLevel * 8 + Math.random() * 18,
+      shootCooldown: 1.3 + Math.random() * 1.5,
+      flash: 0,
+      platformIndex,
+      patrolDir: Math.random() > 0.5 ? 1 : -1,
+      weapon,
+      forcedDrop
+    };
+  }
+
+  function createBoss() {
+    const floor = platforms[0];
+    return {
+      x: W * 0.73,
+      y: floor.y - 96,
+      w: 72,
+      h: 96,
+      vx: 0,
+      vy: 0,
+      hp: 75,
+      maxHp: 75,
+      onGround: true,
+      hurtFlash: 0,
+      actionTimer: 1.7,
+      rapidShotsLeft: 0,
+      rapidShotTimer: 0,
+      phase: 1,
+      summonUsed1: false,
+      summonUsed2: false,
+      direction: -1
+    };
+  }
+
+  function loadLevel(index, showBanner = true) {
+    currentLevel = clamp(index, 0, LEVELS.length - 1);
+    const level = LEVELS[currentLevel];
+
+    platforms.length = 0;
+    enemies.length = 0;
+    bullets.length = 0;
+    enemyBullets.length = 0;
+    particles.length = 0;
+    weaponDrops.length = 0;
+    boss = null;
+
+    for (const block of level.blocks) {
+      platforms.push(rectFromNormalized(block));
+    }
+
+    player.x = level.start[0] * W;
+    player.y = level.start[1] * H;
+    player.vx = 0;
+    player.vy = 0;
+    player.onGround = false;
+    player.hp = clamp(player.hp, 1, player.maxHp);
+    player.fireCooldown = 0;
+    player.hurtTimer = 0;
+
+    for (const data of level.enemies) {
+      enemies.push(createMafiaEnemy(data[0], data[1], data[2], data[3] || null));
+    }
+
+    if (level.type === "boss") {
+      boss = createBoss();
+    }
+
+    gameOver = false;
+    screenShake = 0;
+    levelStartScore = score;
+    levelStartWeapon = player.weapon;
+    levelStartHp = player.hp;
+    levelStartMaxHp = player.maxHp;
+    levelStartFireRateMultiplier = player.fireRateMultiplier;
+    levelStartHealthUpgrades = player.healthUpgrades;
+    levelStartFireRateUpgrades = player.fireRateUpgrades;
+    levelStartMedkits = player.medkits;
+
+    if (showBanner) {
+      transitionText = `LEVEL ${currentLevel + 1}: ${level.name}`;
+      bannerSubtext = level.type === "boss"
+        ? "Take down the Mafia Don."
+        : "Defeat the mafia guards, then reach the exit.";
+      transitionTimer = 1.8;
+    }
+  }
+
+  function moveAndCollide(body, dt) {
+    body.x += body.vx * dt;
+
+    for (const p of platforms) {
+      if (!overlap(body, p)) continue;
+
+      if (body.vx > 0) {
+        body.x = p.x - body.w;
+      } else if (body.vx < 0) {
+        body.x = p.x + p.w;
+      }
+      body.vx = 0;
+    }
+
+    body.y += body.vy * dt;
+    body.onGround = false;
+
+    for (const p of platforms) {
+      if (!overlap(body, p)) continue;
+
+      if (body.vy > 0) {
+        body.y = p.y - body.h;
+        body.vy = 0;
+        body.onGround = true;
+      } else if (body.vy < 0) {
+        body.y = p.y + p.h;
+        body.vy = 0;
+      }
+    }
+
+    body.x = clamp(body.x, 0, W - body.w);
+  }
+
+  function burst(x, y, count = 12, kind = "spark") {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 60 + Math.random() * 250;
+      particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 0.25 + Math.random() * 0.65,
+        size: 2 + Math.random() * 5,
+        kind
+      });
+    }
+  }
+
+  function shoot() {
+    if (player.fireCooldown > 0 || gameOver || gameWon || transitionTimer > 0.15) return;
+
+    const weapon = WEAPONS[player.weapon];
+    const gunX = player.x + player.w / 2;
+    const gunY = player.y + 25;
+
+    let baseAngle = Math.atan2(mouse.y - gunY, mouse.x - gunX);
+
+    for (let i = 0; i < weapon.pellets; i++) {
+      const spread =
+        weapon.pellets === 1
+          ? (Math.random() - 0.5) * weapon.spread
+          : (i / Math.max(1, weapon.pellets - 1) - 0.5) * weapon.spread;
+
+      const angle = baseAngle + spread;
+      const dx = Math.cos(angle);
+      const dy = Math.sin(angle);
+
+      bullets.push({
+        x: gunX + dx * 34,
+        y: gunY + dy * 34,
+        vx: dx * weapon.bulletSpeed,
+        vy: dy * weapon.bulletSpeed,
+        r: player.weapon === "sniper" ? 3 : player.weapon === "rifle" ? 4 : 5,
+        life: 1.6,
+        damage: weapon.damage
+      });
+    }
+
+    player.fireCooldown = weapon.fireRate / player.fireRateMultiplier;
+    screenShake = Math.max(
+      screenShake,
+      player.weapon === "shotgun" ? 7 : player.weapon === "sniper" ? 6 : player.weapon === "rifle" ? 4 : 3
+    );
+
+    const muzzleCount = player.weapon === "shotgun" ? 9 : 5;
+    for (let i = 0; i < muzzleCount; i++) {
+      const dx = Math.cos(baseAngle);
+      const dy = Math.sin(baseAngle);
+      particles.push({
+        x: gunX + dx * 31,
+        y: gunY + dy * 31,
+        vx: dx * (130 + Math.random() * 190) + (Math.random() - 0.5) * 110,
+        vy: dy * (130 + Math.random() * 190) + (Math.random() - 0.5) * 110,
+        life: 0.10 + Math.random() * 0.18,
+        size: 2 + Math.random() * 3,
+        kind: "muzzle"
+      });
+    }
+  }
+
+  function fireEnemyBullet(startX, startY, targetX, targetY, speed, spread = 0) {
+    let angle = Math.atan2(targetY - startY, targetX - startX);
+    angle += spread;
+
+    enemyBullets.push({
+      x: startX,
+      y: startY,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      r: 6,
+      life: 4
+    });
+  }
+
+  function enemyShoot(enemy) {
+    const startX = enemy.x + enemy.w / 2;
+    const startY = enemy.y + enemy.h * 0.43;
+    const targetX = player.x + player.w / 2;
+    const targetY = player.y + player.h / 2;
+    const speed = 255 + currentLevel * 18;
+
+    if (enemy.weapon === "tommy") {
+      for (const spread of [-0.07, 0.07]) {
+        fireEnemyBullet(startX, startY, targetX, targetY, speed, spread);
+      }
+    } else {
+      fireEnemyBullet(startX, startY, targetX, targetY, speed);
+    }
+  }
+
+  function bossFireSpread() {
+    if (!boss) return;
+
+    const startX = boss.x + boss.w / 2;
+    const startY = boss.y + 38;
+    const targetX = player.x + player.w / 2;
+    const targetY = player.y + player.h / 2;
+
+    const spreads = boss.phase === 1
+      ? [-0.22, 0.22]
+      : [-0.30, -0.10, 0.10, 0.30];
+
+    for (const spread of spreads) {
+      fireEnemyBullet(startX, startY, targetX, targetY, 250 + boss.phase * 18, spread);
+    }
+
+    screenShake = Math.max(screenShake, 5);
+  }
+
+  function bossStartRapidFire() {
+    if (!boss) return;
+    boss.rapidShotsLeft = boss.phase === 1 ? 4 : 6;
+    boss.rapidShotTimer = 0;
+  }
+
+  function bossRapidShot() {
+    if (!boss) return;
+
+    const startX = boss.x + boss.w / 2;
+    const startY = boss.y + 40;
+    const targetX = player.x + player.w / 2;
+    const targetY = player.y + player.h / 2;
+
+    fireEnemyBullet(
+      startX,
+      startY,
+      targetX,
+      targetY,
+      285 + boss.phase * 18,
+      (Math.random() - 0.5) * 0.12
+    );
+
+    boss.rapidShotsLeft--;
+    boss.rapidShotTimer = boss.phase === 1 ? 0.34 : 0.26;
+  }
+
+  function summonMafia(count) {
+    const usable = [1, 2, 3];
+
+    for (let i = 0; i < count; i++) {
+      const platformIndex = usable[i % usable.length];
+      const platform = platforms[platformIndex];
+
+      enemies.push({
+        x: platform.x + 20 + Math.random() * Math.max(10, platform.w - 80),
+        y: platform.y - 44,
+        w: 44,
+        h: 44,
+        vx: 0,
+        hp: 2,
+        maxHp: 2,
+        speed: 70 + Math.random() * 20,
+        shootCooldown: 1.4 + Math.random() * 1.2,
+        flash: 0,
+        platformIndex,
+        patrolDir: Math.random() > 0.5 ? 1 : -1,
+        weapon: Math.random() > 0.5 ? "tommy" : "pistol"
+      });
+    }
+
+    transitionText = "REINFORCEMENTS!";
+    bannerSubtext = "The Don called in more mafia guards.";
+    transitionTimer = 0.85;
+  }
+
+  function useMedkit() {
+    if (gameOver || gameWon || player.medkits <= 0) return;
+
+    if (player.hp >= player.maxHp) {
+      pickupMessage = "HEALTH ALREADY FULL";
+      pickupMessageTimer = 1.2;
+      return;
+    }
+
+    const healAmount = Math.min(45, player.maxHp - player.hp);
+    player.hp += healAmount;
+    player.medkits--;
+    pickupMessage = `MEDKIT USED: +${healAmount} HP`;
+    pickupMessageTimer = 1.5;
+    burst(player.x + player.w / 2, player.y + player.h / 2, 16, "pickup");
+  }
+
+  function damagePlayer(amount) {
+    if (player.hurtTimer > 0 || gameOver || gameWon) return;
+
+    player.hp -= amount;
+    player.hurtTimer = 0.55;
+    screenShake = 11;
+    burst(player.x + player.w / 2, player.y + player.h / 2, 12, "hit");
+
+    if (player.hp <= 0) {
+      player.hp = 0;
+      gameOver = true;
+    }
+  }
+
+  function bulletHitsPlatform(bullet) {
+    for (const p of platforms) {
+      if (pointInRect(bullet.x, bullet.y, p)) return true;
+    }
+    return false;
+  }
+
+  function levelCleared() {
+    if (LEVELS[currentLevel].type === "boss") {
+      return boss === null && enemies.length === 0;
+    }
+    return enemies.length === 0;
+  }
+
+  function completeLevel() {
+    if (transitionTimer > 0 || gameWon) return;
+
+    score += 500;
+
+    if (currentLevel >= LEVELS.length - 1) {
+      gameWon = true;
+      gameOver = false;
+      return;
+    }
+
+    currentLevel++;
+    loadLevel(currentLevel, true);
+  }
+
+  function updatePlayerBullets(dt) {
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      const bullet = bullets[i];
+      bullet.x += bullet.vx * dt;
+      bullet.y += bullet.vy * dt;
+      bullet.life -= dt;
+
+      if (
+        bullet.life <= 0 ||
+        bullet.x < -40 ||
+        bullet.x > W + 40 ||
+        bullet.y < -40 ||
+        bullet.y > H + 40 ||
+        bulletHitsPlatform(bullet)
+      ) {
+        bullets.splice(i, 1);
+        continue;
+      }
+
+      let removed = false;
+
+      for (let j = enemies.length - 1; j >= 0; j--) {
+        const enemy = enemies[j];
+
+        if (pointInRect(bullet.x, bullet.y, enemy)) {
+          enemy.hp -= bullet.damage;
+          enemy.flash = 0.10;
+          burst(bullet.x, bullet.y, 6);
+          bullets.splice(i, 1);
+          removed = true;
+
+          if (enemy.hp <= 0) {
+            const dropX = enemy.x + enemy.w / 2 - 22;
+            const dropY = enemy.y + enemy.h / 2 - 12;
+            const forced = enemy.forcedDrop;
+            const roll = Math.random();
+
+            if (forced === "sniper") {
+              weaponDrops.push({
+                x: dropX,
+                y: dropY,
+                w: 44,
+                h: 24,
+                kind: "weapon",
+                weapon: "sniper",
+                age: Math.random() * Math.PI * 2
+              });
+            } else if (forced === "medkit" || forced === "health_upgrade" || forced === "fire_rate_upgrade") {
+              weaponDrops.push({
+                x: dropX,
+                y: dropY,
+                w: 44,
+                h: 28,
+                kind: forced,
+                age: Math.random() * Math.PI * 2
+              });
+            } else if (roll < 0.42) {
+              const dropChoices =
+                currentLevel === 0
+                  ? ["smg", "shotgun", "sniper"]
+                  : ["smg", "shotgun", "rifle", "sniper"];
+              const droppedWeapon =
+                dropChoices[Math.floor(Math.random() * dropChoices.length)];
+
+              weaponDrops.push({
+                x: dropX,
+                y: dropY,
+                w: 44,
+                h: 24,
+                kind: "weapon",
+                weapon: droppedWeapon,
+                age: Math.random() * Math.PI * 2
+              });
+            } else if (roll < 0.63) {
+              weaponDrops.push({
+                x: dropX,
+                y: dropY,
+                w: 44,
+                h: 28,
+                kind: "medkit",
+                age: Math.random() * Math.PI * 2
+              });
+            } else if (roll < 0.82) {
+              weaponDrops.push({
+                x: dropX,
+                y: dropY,
+                w: 44,
+                h: 28,
+                kind: "health_upgrade",
+                age: Math.random() * Math.PI * 2
+              });
+            } else {
+              weaponDrops.push({
+                x: dropX,
+                y: dropY,
+                w: 44,
+                h: 28,
+                kind: "fire_rate_upgrade",
+                age: Math.random() * Math.PI * 2
+              });
+            }
+
+            burst(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2, 20, "hit");
+            enemies.splice(j, 1);
+            score += 100;
+          }
+          break;
+        }
+      }
+
+      if (removed) continue;
+
+      if (boss && pointInRect(bullet.x, bullet.y, boss)) {
+        boss.hp -= bullet.damage;
+        boss.hurtFlash = 0.08;
+        burst(bullet.x, bullet.y, 6);
+        bullets.splice(i, 1);
+        removed = true;
+
+        if (boss.hp <= 0) {
+          burst(boss.x + boss.w / 2, boss.y + boss.h / 2, 45, "boss");
+          score += 2000;
+          boss = null;
+          transitionText = "THE DON IS DOWN!";
+          bannerSubtext = "Finish any remaining guards and reach the exit.";
+          transitionTimer = 1.4;
+        }
+      }
+
+      if (removed) continue;
+    }
+  }
+
+  function updateEnemyBullets(dt) {
+    for (let i = enemyBullets.length - 1; i >= 0; i--) {
+      const bullet = enemyBullets[i];
+      bullet.x += bullet.vx * dt;
+      bullet.y += bullet.vy * dt;
+      bullet.life -= dt;
+
+      if (
+        bullet.life <= 0 ||
+        bullet.x < -50 ||
+        bullet.x > W + 50 ||
+        bullet.y < -50 ||
+        bullet.y > H + 50 ||
+        bulletHitsPlatform(bullet)
+      ) {
+        enemyBullets.splice(i, 1);
+        continue;
+      }
+
+      if (pointInRect(bullet.x, bullet.y, player)) {
+        enemyBullets.splice(i, 1);
+        damagePlayer(7 + currentLevel);
+      }
+    }
+  }
+
+  function updateMafia(dt) {
+    for (const enemy of enemies) {
+      enemy.flash = Math.max(0, enemy.flash - dt);
+      enemy.shootCooldown -= dt;
+
+      const p = platforms[enemy.platformIndex];
+      if (!p) continue;
+
+      const left = p.x + 6;
+      const right = p.x + p.w - enemy.w - 6;
+
+      enemy.vx = enemy.patrolDir * enemy.speed;
+      enemy.x += enemy.vx * dt;
+      enemy.y = p.y - enemy.h;
+
+      if (enemy.x <= left) {
+        enemy.x = left;
+        enemy.patrolDir = 1;
+      } else if (enemy.x >= right) {
+        enemy.x = right;
+        enemy.patrolDir = -1;
+      }
+
+      const dx = (player.x + player.w / 2) - (enemy.x + enemy.w / 2);
+      const dy = (player.y + player.h / 2) - (enemy.y + enemy.h / 2);
+      const distance = Math.hypot(dx, dy);
+
+      if (distance < 760 && enemy.shootCooldown <= 0) {
+        enemyShoot(enemy);
+        enemy.shootCooldown =
+          enemy.weapon === "tommy"
+            ? 2.5 + Math.random() * 1.0
+            : 2.0 + Math.random() * 1.1;
+      }
+
+      if (overlap(player, enemy)) {
+        damagePlayer(10);
+      }
+    }
+  }
+
+  function updateBoss(dt) {
+    if (!boss) return;
+
+    boss.hurtFlash = Math.max(0, boss.hurtFlash - dt);
+
+    const hpRatio = boss.hp / boss.maxHp;
+    boss.phase = hpRatio <= 0.45 ? 2 : 1;
+
+    if (hpRatio <= 0.60 && !boss.summonUsed1) {
+      boss.summonUsed1 = true;
+      summonMafia(1);
+    }
+
+    if (hpRatio <= 0.25 && !boss.summonUsed2) {
+      boss.summonUsed2 = true;
+      summonMafia(2);
+    }
+
+    const floor = platforms[0];
+
+    boss.direction = Math.sign((player.x + player.w / 2) - (boss.x + boss.w / 2)) || boss.direction;
+    const desiredDistance = 330;
+
+    if (Math.abs(player.x - boss.x) > desiredDistance) {
+      boss.vx = boss.direction * (boss.phase === 1 ? 55 : 80);
+    } else {
+      boss.vx = -boss.direction * (boss.phase === 1 ? 30 : 45);
+    }
+
+    boss.x += boss.vx * dt;
+    boss.x = clamp(boss.x, 30, W - boss.w - 30);
+    boss.y = floor.y - boss.h;
+
+    if (boss.rapidShotsLeft > 0) {
+      boss.rapidShotTimer -= dt;
+      if (boss.rapidShotTimer <= 0) {
+        bossRapidShot();
+      }
+    } else {
+      boss.actionTimer -= dt;
+
+      if (boss.actionTimer <= 0) {
+        if (!boss.telegraphTimer || boss.telegraphTimer <= 0) {
+          boss.telegraphTimer = 0.65;
+          boss.pendingAttack = Math.random() < 0.52 ? "spread" : "rapid";
+        } else {
+          boss.telegraphTimer -= dt;
+
+          if (boss.telegraphTimer <= 0) {
+            if (boss.pendingAttack === "spread") {
+              bossFireSpread();
+            } else {
+              bossStartRapidFire();
+            }
+
+            boss.pendingAttack = null;
+            boss.actionTimer = boss.phase === 1
+              ? 2.35 + Math.random() * 1.0
+              : 1.75 + Math.random() * 0.8;
+          }
+        }
+      }
+    }
+
+    if (overlap(player, boss)) {
+      damagePlayer(18);
+    }
+  }
+
+  function updateWeaponDrops(dt) {
+    for (let i = weaponDrops.length - 1; i >= 0; i--) {
+      const drop = weaponDrops[i];
+      drop.age += dt * 4;
+
+      const pickupRect = {
+        x: drop.x,
+        y: drop.y + Math.sin(drop.age) * 5,
+        w: drop.w,
+        h: drop.h
+      };
+
+      if (overlap(player, pickupRect)) {
+        if (drop.kind === "weapon") {
+          player.weapon = drop.weapon;
+          pickupMessage = `${WEAPONS[drop.weapon].name} EQUIPPED!`;
+        } else if (drop.kind === "medkit") {
+          player.medkits++;
+          pickupMessage = `MEDKIT STORED!  (${player.medkits} TOTAL)`;
+        } else if (drop.kind === "health_upgrade") {
+          player.maxHp += 20;
+          player.hp += 20;
+          player.healthUpgrades++;
+          pickupMessage = `MAX HEALTH +20!  (${player.maxHp} MAX)`;
+        } else if (drop.kind === "fire_rate_upgrade") {
+          player.fireRateMultiplier = Math.min(2.0, player.fireRateMultiplier + 0.12);
+          player.fireRateUpgrades++;
+          pickupMessage = `FIRE RATE +12%!`;
+        }
+
+        pickupMessageTimer = 1.6;
+        burst(drop.x + drop.w / 2, drop.y + drop.h / 2, 14, "pickup");
+        weaponDrops.splice(i, 1);
+      }
+    }
+  }
+
+  function update(dt) {
+    player.fireCooldown = Math.max(0, player.fireCooldown - dt);
+    player.hurtTimer = Math.max(0, player.hurtTimer - dt);
+    transitionTimer = Math.max(0, transitionTimer - dt);
+    pickupMessageTimer = Math.max(0, pickupMessageTimer - dt);
+    screenShake = Math.max(0, screenShake - 35 * dt);
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 0.97;
+      p.vy *= 0.97;
+      p.life -= dt;
+
+      if (p.life <= 0) {
+        particles.splice(i, 1);
+      }
+    }
+
+    if (gameOver || gameWon) return;
+
+    let move = 0;
+    if (keys["a"] || keys["arrowleft"]) move -= 1;
+    if (keys["d"] || keys["arrowright"]) move += 1;
+
+    player.vx = move * player.speed;
+
+    const wantsJump = keys["w"] || keys["arrowup"] || keys[" "];
+    if (wantsJump && player.onGround) {
+      player.vy = -player.jumpPower;
+      player.onGround = false;
+    }
+
+    player.vy += 1800 * dt;
+    moveAndCollide(player, dt);
+
+    if (player.y > H + 150) {
+      damagePlayer(999);
+    }
+
+    if (mouse.down) shoot();
+
+    updatePlayerBullets(dt);
+    updateEnemyBullets(dt);
+    updateMafia(dt);
+    updateBoss(dt);
+    updateWeaponDrops(dt);
+
+    if (levelCleared()) {
+      const exit = getExitRect();
+      if (overlap(player, exit)) {
+        completeLevel();
+      }
+    }
+  }
+
+  function drawBackground() {
+    const level = LEVELS[currentLevel];
+    const gradient = ctx.createLinearGradient(0, 0, 0, H);
+    gradient.addColorStop(0, level.skyTop);
+    gradient.addColorStop(1, level.skyBottom);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, W, H);
+
+    if (level.type === "boss") {
+      ctx.fillStyle = "rgba(255, 214, 120, .08)";
+      for (let i = 0; i < 8; i++) {
+        const x = i * (W / 7) - 40;
+        ctx.fillRect(x, H * 0.13, 90, H * 0.75);
+      }
+
+      ctx.fillStyle = "rgba(255,255,255,.08)";
+      ctx.fillRect(W * 0.39, H * 0.05, W * 0.22, H * 0.28);
+
+      ctx.strokeStyle = "rgba(255,220,150,.22)";
+      ctx.lineWidth = 5;
+      ctx.strokeRect(W * 0.39, H * 0.05, W * 0.22, H * 0.28);
+    } else {
+      ctx.fillStyle = "rgba(8, 12, 24, .38)";
+      for (let i = 0; i < 13; i++) {
+        const bw = 70 + ((i * 31) % 90);
+        const bh = 100 + ((i * 77) % 280);
+        const x = i * (W / 11) - 40;
+        ctx.fillRect(x, H - bh - 35, bw, bh);
+      }
+    }
+
+    ctx.fillStyle = "rgba(255,255,255,.06)";
+    for (let i = 0; i < 70; i++) {
+      const x = (i * 197) % Math.max(W, 1);
+      const y = (i * 83) % Math.max(H * 0.65, 1);
+      ctx.fillRect(x, y, 2, 2);
+    }
+  }
+
+  function drawBlock(p, index) {
+    const isFloor = index === 0;
+    const bossLevel = LEVELS[currentLevel].type === "boss";
+
+    ctx.fillStyle = bossLevel
+      ? (isFloor ? "#332f38" : "#4a434e")
+      : (isFloor ? "#303746" : "#46546d");
+
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+
+    ctx.fillStyle = bossLevel
+      ? (isFloor ? "#5b5260" : "#766c7c")
+      : (isFloor ? "#495267" : "#63718b");
+
+    ctx.fillRect(p.x, p.y, p.w, Math.min(10, p.h));
+
+    ctx.strokeStyle = "rgba(10,15,25,.45)";
+    ctx.lineWidth = 2;
+
+    const brickW = 48;
+    const brickH = 26;
+
+    for (let y = p.y + 10; y < p.y + p.h; y += brickH) {
+      ctx.beginPath();
+      ctx.moveTo(p.x, y);
+      ctx.lineTo(p.x + p.w, y);
+      ctx.stroke();
+
+      const row = Math.floor((y - p.y) / brickH);
+      for (let x = p.x + (row % 2 ? brickW / 2 : 0); x < p.x + p.w; x += brickW) {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, Math.min(y + brickH, p.y + p.h));
+        ctx.stroke();
+      }
+    }
+  }
+
+  function drawExit() {
+    const exit = getExitRect();
+    const open = levelCleared();
+
+    ctx.save();
+
+    if (open) {
+      const pulse = 0.75 + Math.sin(performance.now() * 0.008) * 0.18;
+      ctx.shadowBlur = 25;
+      ctx.shadowColor = "#6cf7ff";
+      ctx.fillStyle = `rgba(70, 226, 255, ${pulse})`;
+      ctx.fillRect(exit.x, exit.y, exit.w, exit.h);
+
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "#d9fdff";
+      ctx.lineWidth = 4;
+      ctx.strokeRect(exit.x, exit.y, exit.w, exit.h);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 14px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("EXIT", exit.x + exit.w / 2, exit.y - 10);
+    } else {
+      ctx.fillStyle = "#352e44";
+      ctx.fillRect(exit.x, exit.y, exit.w, exit.h);
+
+      ctx.strokeStyle = "#72657f";
+      ctx.lineWidth = 4;
+      ctx.strokeRect(exit.x, exit.y, exit.w, exit.h);
+
+      ctx.fillStyle = "#ff657a";
+      ctx.beginPath();
+      ctx.arc(exit.x + exit.w / 2, exit.y + exit.h / 2, 8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  function drawMilitaryAgent() {
+    const centerX = player.x + player.w / 2;
+    const centerY = player.y + 26;
+    const angle = Math.atan2(mouse.y - centerY, mouse.x - centerX);
+    const facingRight = Math.cos(angle) >= 0;
+
+    ctx.save();
+
+    if (player.hurtTimer > 0 && Math.floor(player.hurtTimer * 28) % 2 === 0) {
+      ctx.globalAlpha = 0.35;
+    }
+
+    // Boots
+    ctx.fillStyle = "#171b16";
+    ctx.fillRect(player.x + 5, player.y + 48, 12, 10);
+    ctx.fillRect(player.x + player.w - 17, player.y + 48, 12, 10);
+
+    // Uniform legs
+    ctx.fillStyle = "#4b5f3b";
+    ctx.fillRect(player.x + 7, player.y + 38, 11, 13);
+    ctx.fillRect(player.x + player.w - 18, player.y + 38, 11, 13);
+
+    // Uniform body
+    ctx.fillStyle = "#556b43";
+    ctx.fillRect(player.x + 5, player.y + 16, player.w - 10, 29);
+
+    // Tactical vest
+    ctx.fillStyle = "#2d3a2b";
+    ctx.fillRect(player.x + 9, player.y + 19, player.w - 18, 24);
+
+    ctx.fillStyle = "#788868";
+    ctx.fillRect(player.x + 11, player.y + 23, 8, 8);
+    ctx.fillRect(player.x + player.w - 19, player.y + 23, 8, 8);
+    ctx.fillRect(player.x + 15, player.y + 34, 10, 7);
+
+    // Neck and face
+    ctx.fillStyle = "#d7aa84";
+    ctx.fillRect(centerX - 6, player.y + 11, 12, 7);
+    ctx.beginPath();
+    ctx.arc(centerX, player.y + 10, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Helmet
+    ctx.fillStyle = "#37462f";
+    ctx.beginPath();
+    ctx.arc(centerX, player.y + 8, 12, Math.PI, Math.PI * 2);
+    ctx.lineTo(centerX + 12, player.y + 9);
+    ctx.lineTo(centerX - 12, player.y + 9);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#73835f";
+    ctx.fillRect(centerX - 13, player.y + 7, 26, 4);
+
+    // Goggles
+    ctx.fillStyle = "#18242a";
+    ctx.fillRect(centerX - 9, player.y + 8, 7, 4);
+    ctx.fillRect(centerX + 2, player.y + 8, 7, 4);
+    ctx.fillStyle = "#6fb2bd";
+    ctx.fillRect(centerX - 8, player.y + 9, 5, 2);
+    ctx.fillRect(centerX + 3, player.y + 9, 5, 2);
+
+    // Arm and current weapon
+    ctx.translate(centerX, centerY);
+    ctx.rotate(angle);
+
+    ctx.fillStyle = "#d7aa84";
+    ctx.fillRect(1, -4, 16, 8);
+
+    ctx.fillStyle = "#1c2325";
+
+    if (player.weapon === "pistol") {
+      ctx.fillRect(7, -5, 25, 8);
+      ctx.fillRect(14, 3, 8, 12);
+    } else if (player.weapon === "smg") {
+      ctx.fillRect(5, -6, 38, 9);
+      ctx.fillRect(35, -4, 10, 5);
+      ctx.fillRect(13, 3, 8, 13);
+    } else if (player.weapon === "shotgun") {
+      ctx.fillRect(5, -6, 48, 9);
+      ctx.fillStyle = "#8a6a3d";
+      ctx.fillRect(15, -4, 18, 5);
+      ctx.fillRect(7, 3, 10, 11);
+    } else if (player.weapon === "sniper") {
+      ctx.fillRect(3, -5, 60, 7);
+      ctx.fillStyle = "#39444a";
+      ctx.fillRect(45, -3, 24, 4);
+      ctx.fillStyle = "#111619";
+      ctx.fillRect(16, 2, 9, 13);
+      ctx.fillStyle = "#7b5a35";
+      ctx.fillRect(5, -3, 15, 4);
+      ctx.fillStyle = "#56636d";
+      ctx.fillRect(27, -10, 16, 5);
+    } else {
+      ctx.fillRect(5, -6, 50, 9);
+      ctx.fillStyle = "#39444a";
+      ctx.fillRect(35, -4, 22, 5);
+      ctx.fillStyle = "#111619";
+      ctx.fillRect(13, 3, 9, 12);
+      ctx.fillStyle = "#8a6a3d";
+      ctx.fillRect(6, -4, 10, 5);
+    }
+
+    ctx.restore();
+  }
+
+  function drawMafiaEnemy(enemy) {
+    const cx = enemy.x + enemy.w / 2;
+    const facingRight = enemy.patrolDir > 0;
+
+    ctx.save();
+
+    // Shoes
+    ctx.fillStyle = "#141414";
+    ctx.fillRect(enemy.x + 4, enemy.y + 36, 14, 8);
+    ctx.fillRect(enemy.x + enemy.w - 18, enemy.y + 36, 14, 8);
+
+    // Suit
+    ctx.fillStyle = enemy.flash > 0 ? "#ffffff" : "#24232a";
+    ctx.fillRect(enemy.x + 4, enemy.y + 14, enemy.w - 8, 26);
+
+    // White shirt
+    ctx.fillStyle = "#ece7dc";
+    ctx.fillRect(cx - 7, enemy.y + 15, 14, 19);
+
+    // Red tie
+    ctx.fillStyle = "#a8212f";
+    ctx.beginPath();
+    ctx.moveTo(cx, enemy.y + 18);
+    ctx.lineTo(cx + 4, enemy.y + 23);
+    ctx.lineTo(cx, enemy.y + 33);
+    ctx.lineTo(cx - 4, enemy.y + 23);
+    ctx.closePath();
+    ctx.fill();
+
+    // Face
+    ctx.fillStyle = "#c9956f";
+    ctx.beginPath();
+    ctx.arc(cx, enemy.y + 10, 9, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Fedora
+    ctx.fillStyle = "#16151b";
+    ctx.fillRect(cx - 14, enemy.y + 2, 28, 4);
+    ctx.fillRect(cx - 9, enemy.y - 4, 18, 8);
+
+    // Gun
+    ctx.save();
+    ctx.translate(cx, enemy.y + 26);
+    ctx.scale(facingRight ? 1 : -1, 1);
+
+    ctx.fillStyle = "#11161a";
+    if (enemy.weapon === "tommy") {
+      ctx.fillRect(2, -4, 28, 7);
+      ctx.fillRect(25, -3, 14, 4);
+      ctx.fillStyle = "#5d452c";
+      ctx.fillRect(5, 3, 8, 10);
+      ctx.beginPath();
+      ctx.arc(18, 5, 6, 0, Math.PI * 2);
+      ctx.fillStyle = "#242a2e";
+      ctx.fill();
+    } else {
+      ctx.fillRect(4, -4, 24, 7);
+      ctx.fillRect(11, 3, 7, 10);
+    }
+    ctx.restore();
+
+    // Health bar
+    ctx.fillStyle = "rgba(0,0,0,.65)";
+    ctx.fillRect(enemy.x, enemy.y - 11, enemy.w, 5);
+    ctx.fillStyle = "#77e68b";
+    ctx.fillRect(enemy.x, enemy.y - 11, enemy.w * (enemy.hp / enemy.maxHp), 5);
+
+    ctx.restore();
+  }
+
+  function drawWeaponDrops() {
+    for (const drop of weaponDrops) {
+      const y = drop.y + Math.sin(drop.age) * 5;
+
+      ctx.save();
+
+      if (drop.kind === "weapon") {
+        const weapon = WEAPONS[drop.weapon];
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = drop.weapon === "sniper" ? "#8fd8ff" : "#ffe477";
+        ctx.fillStyle =
+          drop.weapon === "sniper"
+            ? "rgba(100, 200, 255, .24)"
+            : "rgba(255, 228, 119, .22)";
+        ctx.fillRect(drop.x - 5, y - 5, drop.w + 10, drop.h + 10);
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = "#171b20";
+
+        if (drop.weapon === "pistol") {
+          ctx.fillRect(drop.x + 7, y + 5, 23, 7);
+          ctx.fillRect(drop.x + 15, y + 12, 7, 9);
+        } else if (drop.weapon === "smg") {
+          ctx.fillRect(drop.x + 4, y + 5, 32, 7);
+          ctx.fillRect(drop.x + 12, y + 12, 7, 9);
+        } else if (drop.weapon === "shotgun") {
+          ctx.fillRect(drop.x + 2, y + 6, 39, 7);
+          ctx.fillStyle = "#8a6a3d";
+          ctx.fillRect(drop.x + 9, y + 8, 15, 4);
+        } else if (drop.weapon === "sniper") {
+          ctx.fillRect(drop.x - 2, y + 7, 48, 5);
+          ctx.fillRect(drop.x + 12, y + 12, 7, 10);
+          ctx.fillStyle = "#61717d";
+          ctx.fillRect(drop.x + 20, y + 2, 15, 5);
+        } else {
+          ctx.fillRect(drop.x + 2, y + 5, 40, 7);
+          ctx.fillRect(drop.x + 12, y + 12, 7, 9);
+        }
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = drop.weapon === "sniper" ? "#bdeaff" : "#fff3b0";
+        ctx.font = "bold 11px Arial";
+        ctx.fillText(weapon.name, drop.x + drop.w / 2, y - 7);
+      } else if (drop.kind === "medkit") {
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = "#71ff8d";
+        ctx.fillStyle = "rgba(90, 255, 125, .24)";
+        ctx.fillRect(drop.x - 5, y - 5, drop.w + 10, drop.h + 10);
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = "#f3f5f3";
+        ctx.fillRect(drop.x + 4, y + 4, 36, 21);
+        ctx.fillStyle = "#d63d4d";
+        ctx.fillRect(drop.x + 17, y + 6, 10, 17);
+        ctx.fillRect(drop.x + 12, y + 11, 20, 7);
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#baffc5";
+        ctx.font = "bold 11px Arial";
+        ctx.fillText("MEDKIT", drop.x + drop.w / 2, y - 7);
+      } else if (drop.kind === "health_upgrade") {
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = "#6ff7ff";
+        ctx.fillStyle = "rgba(90, 235, 255, .24)";
+        ctx.fillRect(drop.x - 5, y - 5, drop.w + 10, drop.h + 10);
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = "#69eaff";
+        ctx.beginPath();
+        ctx.arc(drop.x + 22, y + 14, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(drop.x + 19, y + 5, 6, 18);
+        ctx.fillRect(drop.x + 13, y + 11, 18, 6);
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#bdf8ff";
+        ctx.font = "bold 10px Arial";
+        ctx.fillText("MAX HP +20", drop.x + drop.w / 2, y - 7);
+      } else {
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = "#ffb95f";
+        ctx.fillStyle = "rgba(255, 170, 70, .25)";
+        ctx.fillRect(drop.x - 5, y - 5, drop.w + 10, drop.h + 10);
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = "#ffd15c";
+        ctx.beginPath();
+        ctx.moveTo(drop.x + 24, y + 1);
+        ctx.lineTo(drop.x + 12, y + 16);
+        ctx.lineTo(drop.x + 21, y + 16);
+        ctx.lineTo(drop.x + 16, y + 28);
+        ctx.lineTo(drop.x + 34, y + 11);
+        ctx.lineTo(drop.x + 25, y + 11);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#ffe1a6";
+        ctx.font = "bold 10px Arial";
+        ctx.fillText("FIRE RATE +12%", drop.x + drop.w / 2, y - 7);
+      }
+
+      ctx.restore();
+    }
+  }
+
+  function drawBoss() {
+    if (!boss) return;
+
+    const cx = boss.x + boss.w / 2;
+    const facingRight = boss.direction > 0;
+
+    ctx.save();
+
+    // Big shoes
+    ctx.fillStyle = "#101014";
+    ctx.fillRect(boss.x + 5, boss.y + 79, 25, 17);
+    ctx.fillRect(boss.x + boss.w - 30, boss.y + 79, 25, 17);
+
+    // Big suit
+    ctx.fillStyle = boss.hurtFlash > 0 ? "#ffffff" : "#17171d";
+    ctx.fillRect(boss.x + 4, boss.y + 27, boss.w - 8, 59);
+
+    // Shirt
+    ctx.fillStyle = "#f1e7d8";
+    ctx.fillRect(cx - 14, boss.y + 30, 28, 42);
+
+    // Red vest
+    ctx.fillStyle = "#6e1823";
+    ctx.fillRect(cx - 11, boss.y + 38, 22, 39);
+
+    // Gold chain
+    ctx.strokeStyle = "#e9c85d";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, boss.y + 49, 15, 0.15, Math.PI - 0.15);
+    ctx.stroke();
+
+    // Face
+    ctx.fillStyle = "#c58f69";
+    ctx.beginPath();
+    ctx.arc(cx, boss.y + 20, 18, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Sunglasses
+    ctx.fillStyle = "#111318";
+    ctx.fillRect(cx - 15, boss.y + 16, 12, 6);
+    ctx.fillRect(cx + 3, boss.y + 16, 12, 6);
+    ctx.fillRect(cx - 3, boss.y + 18, 6, 2);
+
+    // Fedora
+    ctx.fillStyle = "#101014";
+    ctx.fillRect(cx - 25, boss.y + 4, 50, 7);
+    ctx.fillRect(cx - 17, boss.y - 7, 34, 15);
+
+    // Gold band
+    ctx.fillStyle = "#b99538";
+    ctx.fillRect(cx - 17, boss.y + 2, 34, 4);
+
+    // Attack warning
+    if (boss.telegraphTimer > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.65 + Math.sin(performance.now() * 0.02) * 0.25;
+      ctx.strokeStyle = "#ffd76a";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(cx, boss.y + 42, 45, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Boss gun
+    ctx.save();
+    ctx.translate(cx, boss.y + 54);
+    ctx.scale(facingRight ? 1 : -1, 1);
+
+    ctx.fillStyle = "#161a1e";
+    ctx.fillRect(4, -7, 43, 11);
+    ctx.fillRect(40, -5, 20, 6);
+    ctx.fillStyle = "#6d4f2e";
+    ctx.fillRect(8, 4, 12, 18);
+    ctx.fillStyle = "#292e33";
+    ctx.beginPath();
+    ctx.arc(28, 8, 11, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  function drawHUD() {
+    ctx.save();
+
+    ctx.fillStyle = "rgba(0,0,0,.44)";
+    ctx.fillRect(16, 16, 430, 206);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 22px Arial";
+    ctx.fillText(`LEVEL ${currentLevel + 1} / ${LEVELS.length}`, 30, 47);
+
+    ctx.font = "bold 18px Arial";
+    ctx.fillText(`SCORE ${score}`, 30, 76);
+
+    ctx.font = "bold 15px Arial";
+    ctx.fillText(`MAFIA ${enemies.length}`, 212, 76);
+
+    ctx.fillStyle = "#f5d46a";
+    ctx.font = "bold 16px Arial";
+    ctx.fillText(`WEAPON: ${WEAPONS[player.weapon].name}`, 30, 104);
+
+    ctx.fillStyle = "#9fefff";
+    ctx.font = "bold 14px Arial";
+    ctx.fillText(`MAX HP UPGRADES: ${player.healthUpgrades}`, 30, 130);
+
+    ctx.fillStyle = "#ffd184";
+    ctx.fillText(`FIRE RATE UPGRADES: ${player.fireRateUpgrades}  (+${Math.round((player.fireRateMultiplier - 1) * 100)}%)`, 30, 153);
+
+    ctx.fillStyle = "#baffc5";
+    ctx.fillText(`MEDKITS: ${player.medkits}  (PRESS E TO USE)`, 30, 176);
+
+    ctx.fillStyle = "rgba(255,255,255,.18)";
+    ctx.fillRect(30, 188, 390, 18);
+
+    const hpRatio = player.hp / player.maxHp;
+    ctx.fillStyle = hpRatio > 0.45 ? "#68db7f" : "#ff5f6d";
+    ctx.fillRect(30, 188, 390 * hpRatio, 18);
+
+    ctx.strokeStyle = "rgba(255,255,255,.5)";
+    ctx.strokeRect(30, 188, 390, 18);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 12px Arial";
+    ctx.fillText(`AGENT HEALTH ${player.hp} / ${player.maxHp}`, 34, 201);
+
+    if (levelCleared() && !gameWon) {
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#8ff8ff";
+      ctx.font = "bold 21px Arial";
+      ctx.fillText("AREA CLEAR — REACH THE BLUE EXIT!", W / 2, 42);
+    }
+
+    ctx.restore();
+  }
+
+  function drawBossBar() {
+    if (!boss) return;
+
+    const barW = Math.min(720, W * 0.62);
+    const barH = 24;
+    const x = (W - barW) / 2;
+    const y = 22;
+    const ratio = boss.hp / boss.maxHp;
+
+    ctx.save();
+
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#f5e9d0";
+    ctx.font = "bold 18px Arial";
+    ctx.fillText(
+      boss.phase === 1 ? "THE DON" : "THE DON — ENRAGED",
+      W / 2,
+      y - 4
+    );
+
+    ctx.fillStyle = "rgba(0,0,0,.72)";
+    ctx.fillRect(x - 5, y + 4, barW + 10, barH + 10);
+
+    ctx.fillStyle = "#4b1118";
+    ctx.fillRect(x, y + 9, barW, barH);
+
+    ctx.fillStyle = boss.phase === 1 ? "#c83849" : "#ff3e50";
+    ctx.fillRect(x, y + 9, barW * ratio, barH);
+
+    ctx.strokeStyle = "#f0d6a2";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x, y + 9, barW, barH);
+
+    ctx.restore();
+  }
+
+  function drawCrosshair() {
+    ctx.save();
+    ctx.translate(mouse.x, mouse.y);
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+    ctx.moveTo(-17, 0);
+    ctx.lineTo(-6, 0);
+    ctx.moveTo(17, 0);
+    ctx.lineTo(6, 0);
+    ctx.moveTo(0, -17);
+    ctx.lineTo(0, -6);
+    ctx.moveTo(0, 17);
+    ctx.lineTo(0, 6);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawOverlay() {
+    if (transitionTimer > 0) {
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,.48)";
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 40px Arial";
+      ctx.fillText(transitionText, W / 2, H / 2 - 10);
+
+      ctx.font = "18px Arial";
+      ctx.fillStyle = "#d6d9e0";
+      ctx.fillText(bannerSubtext, W / 2, H / 2 + 30);
+
+      ctx.restore();
+    }
+
+    if (gameOver) {
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,.74)";
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 64px Arial";
+      ctx.fillText("MISSION FAILED", W / 2, H / 2 - 50);
+
+      ctx.font = "bold 26px Arial";
+      ctx.fillText(`Score: ${score}`, W / 2, H / 2 + 5);
+
+      ctx.font = "20px Arial";
+      ctx.fillStyle = "#d4d8e2";
+      ctx.fillText("Press R to restart the level", W / 2, H / 2 + 52);
+
+      ctx.restore();
+    }
+
+    if (gameWon) {
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,.80)";
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#f5d46a";
+      ctx.font = "bold 66px Arial";
+      ctx.fillText("MISSION COMPLETE!", W / 2, H / 2 - 70);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 30px Arial";
+      ctx.fillText("THE MAFIA DON HAS BEEN DEFEATED", W / 2, H / 2 - 15);
+
+      ctx.font = "bold 26px Arial";
+      ctx.fillText(`Final Score: ${score}`, W / 2, H / 2 + 35);
+
+      ctx.font = "20px Arial";
+      ctx.fillStyle = "#d4d8e2";
+      ctx.fillText("Press R to play again", W / 2, H / 2 + 84);
+
+      ctx.restore();
+    }
+  }
+
+  function draw() {
+    const shakeX = screenShake > 0 ? (Math.random() - 0.5) * screenShake : 0;
+    const shakeY = screenShake > 0 ? (Math.random() - 0.5) * screenShake : 0;
+
+    ctx.save();
+    ctx.translate(shakeX, shakeY);
+
+    drawBackground();
+
+    for (let i = 0; i < platforms.length; i++) {
+      drawBlock(platforms[i], i);
+    }
+
+    drawExit();
+
+    for (const particle of particles) {
+      ctx.globalAlpha = clamp(particle.life * 2, 0, 1);
+
+      if (particle.kind === "boss") {
+        ctx.fillStyle = "#f5cf61";
+      } else if (particle.kind === "hit") {
+        ctx.fillStyle = "#ff7b6b";
+      } else {
+        ctx.fillStyle = "#ffd166";
+      }
+
+      ctx.fillRect(particle.x, particle.y, particle.size, particle.size);
+      ctx.globalAlpha = 1;
+    }
+
+    for (const bullet of bullets) {
+      ctx.fillStyle = "#fff36b";
+      ctx.beginPath();
+      ctx.arc(bullet.x, bullet.y, bullet.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    for (const bullet of enemyBullets) {
+      ctx.fillStyle = "#ff4668";
+      ctx.beginPath();
+      ctx.arc(bullet.x, bullet.y, bullet.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    for (const enemy of enemies) {
+      drawMafiaEnemy(enemy);
+    }
+
+    drawWeaponDrops();
+    drawBoss();
+    drawMilitaryAgent();
+
+    ctx.restore();
+
+    drawHUD();
+    drawBossBar();
+
+    if (pickupMessageTimer > 0) {
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#fff3a6";
+      ctx.font = "bold 24px Arial";
+      ctx.fillText(pickupMessage, W / 2, 78);
+      ctx.restore();
+    }
+
+    drawCrosshair();
+    drawOverlay();
+  }
+
+  let last = performance.now();
+
+  function loop(now) {
+    const dt = Math.min(0.033, (now - last) / 1000);
+    last = now;
+
+    update(dt);
+    draw();
+
+    requestAnimationFrame(loop);
+  }
+
+  resize();
+  loadLevel(0, true);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
