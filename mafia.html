@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Agent vs Mafia - Persistent Upgrades</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Agent vs Mafia - Mobile & Laptop</title>
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -20,7 +20,9 @@
       width: 100vw;
       height: 100vh;
       cursor: crosshair;
+      touch-action: none;
     }
+
     #help {
       position: fixed;
       left: 14px;
@@ -31,6 +33,170 @@
       pointer-events: none;
       text-shadow: 0 2px 5px #000;
     }
+
+    #touchControls {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    .touch-group {
+      position: absolute;
+      bottom: max(18px, env(safe-area-inset-bottom));
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      pointer-events: none;
+    }
+
+    #moveControls {
+      left: max(16px, env(safe-area-inset-left));
+    }
+
+    #actionControls {
+      right: max(16px, env(safe-area-inset-right));
+    }
+
+    .touch-button {
+      width: 70px;
+      height: 70px;
+      border: 2px solid rgba(255,255,255,.65);
+      border-radius: 50%;
+      background: rgba(10, 16, 25, .62);
+      color: white;
+      font-family: Arial, Helvetica, sans-serif;
+      font-weight: bold;
+      font-size: clamp(14px, 3.8vw, 22px);
+      line-height: 1;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: clip;
+      padding: 0 6px;
+      box-shadow: 0 4px 14px rgba(0,0,0,.45);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      touch-action: none;
+      pointer-events: auto;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .touch-button.active,
+    .touch-button:active {
+      transform: scale(.94);
+      background: rgba(80, 130, 170, .78);
+    }
+
+    #jumpBtn,
+    #fireBtn {
+      width: 78px;
+      height: 78px;
+      font-size: 15px;
+      padding: 0 5px;
+    }
+
+    #fireBtn {
+      border-color: rgba(255, 220, 90, .85);
+    }
+
+    #jumpBtn {
+      border-color: rgba(100, 225, 255, .85);
+    }
+
+    #mobileTopControls {
+      position: absolute;
+      top: max(10px, env(safe-area-inset-top));
+      right: max(10px, env(safe-area-inset-right));
+      display: flex;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    #medkitBtn,
+    #restartBtn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .small-touch-button {
+      width: 74px;
+      min-width: 74px;
+      height: 42px;
+      padding: 0 4px;
+      border-radius: 12px;
+      font-size: 9px;
+      letter-spacing: 0;
+      line-height: 1;
+    }
+
+    #mobileAimHint {
+      display: none;
+      position: fixed;
+      left: 50%;
+      bottom: max(104px, calc(env(safe-area-inset-bottom) + 104px));
+      transform: translateX(-50%);
+      z-index: 4;
+      color: rgba(255,255,255,.86);
+      font-size: 13px;
+      text-align: center;
+      text-shadow: 0 2px 5px #000;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    @media (hover: none), (pointer: coarse), (max-width: 900px) {
+      #touchControls,
+      #mobileAimHint {
+        display: block;
+      }
+
+      #help {
+        display: none;
+      }
+
+      canvas {
+        cursor: default;
+      }
+    }
+
+    @media (max-width: 560px), (max-height: 500px) {
+      .touch-button {
+        width: 58px;
+        height: 58px;
+        font-size: 16px;
+        padding: 0 4px;
+      }
+
+      #jumpBtn,
+      #fireBtn {
+        width: 66px;
+        height: 66px;
+        font-size: 12px;
+        padding: 0 3px;
+      }
+
+      .small-touch-button {
+        width: 64px;
+        min-width: 64px;
+        height: 38px;
+        font-size: 8px;
+        padding: 0 2px;
+      }
+
+      .touch-group {
+        gap: 8px;
+      }
+
+      #mobileAimHint {
+        bottom: max(88px, calc(env(safe-area-inset-bottom) + 88px));
+        font-size: 11px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -38,6 +204,25 @@
   <div id="help">
     Move: A/D or ←/→ &nbsp; Jump: W, ↑, or Space &nbsp;
     Aim: Mouse &nbsp; Shoot: Click &nbsp; Walk over drops to collect them &nbsp; Use medkit: E &nbsp; Restart level: R
+  </div>
+
+  <div id="mobileAimHint">Tap or drag anywhere on the game to aim and shoot</div>
+
+  <div id="touchControls" aria-label="Mobile game controls">
+    <div id="mobileTopControls">
+      <button id="medkitBtn" class="touch-button small-touch-button" type="button">MEDKIT</button>
+      <button id="restartBtn" class="touch-button small-touch-button" type="button">RESTART</button>
+    </div>
+
+    <div id="moveControls" class="touch-group">
+      <button id="leftBtn" class="touch-button" type="button" aria-label="Move left">◀</button>
+      <button id="rightBtn" class="touch-button" type="button" aria-label="Move right">▶</button>
+    </div>
+
+    <div id="actionControls" class="touch-group">
+      <button id="jumpBtn" class="touch-button" type="button">JUMP</button>
+      <button id="fireBtn" class="touch-button" type="button">FIRE</button>
+    </div>
   </div>
 
 <script>
@@ -53,6 +238,14 @@
 
   const keys = Object.create(null);
   const mouse = { x: 800, y: 300, down: false };
+  const touchControls = {
+    left: false,
+    right: false,
+    fire: false,
+    jumpQueued: false,
+    aimShooting: false,
+    aimPointerId: null
+  };
 
   const bullets = [];
   const enemyBullets = [];
@@ -243,6 +436,35 @@
   }
 
   window.addEventListener("resize", resize);
+  window.addEventListener("orientationchange", () => {
+    setTimeout(resize, 120);
+  });
+
+  function restartCurrentGameState() {
+    if (gameWon) {
+      score = 0;
+      currentLevel = 0;
+      gameWon = false;
+      player.weapon = "pistol";
+      player.maxHp = 120;
+      player.hp = 120;
+      player.fireRateMultiplier = 1;
+      player.healthUpgrades = 0;
+      player.fireRateUpgrades = 0;
+      player.medkits = 0;
+      loadLevel(0, true);
+    } else {
+      score = levelStartScore;
+      player.weapon = levelStartWeapon;
+      player.hp = levelStartHp;
+      player.maxHp = levelStartMaxHp;
+      player.fireRateMultiplier = levelStartFireRateMultiplier;
+      player.healthUpgrades = levelStartHealthUpgrades;
+      player.fireRateUpgrades = levelStartFireRateUpgrades;
+      player.medkits = levelStartMedkits;
+      loadLevel(currentLevel, true);
+    }
+  }
 
   window.addEventListener("keydown", (e) => {
     keys[e.key.toLowerCase()] = true;
@@ -256,29 +478,7 @@
     }
 
     if (e.key.toLowerCase() === "r") {
-      if (gameWon) {
-        score = 0;
-        currentLevel = 0;
-        gameWon = false;
-        player.weapon = "pistol";
-        player.maxHp = 120;
-        player.hp = 120;
-        player.fireRateMultiplier = 1;
-        player.healthUpgrades = 0;
-        player.fireRateUpgrades = 0;
-        player.medkits = 0;
-        loadLevel(0, true);
-      } else {
-        score = levelStartScore;
-        player.weapon = levelStartWeapon;
-        player.hp = levelStartHp;
-        player.maxHp = levelStartMaxHp;
-        player.fireRateMultiplier = levelStartFireRateMultiplier;
-        player.healthUpgrades = levelStartHealthUpgrades;
-        player.fireRateUpgrades = levelStartFireRateUpgrades;
-        player.medkits = levelStartMedkits;
-        loadLevel(currentLevel, true);
-      }
+      restartCurrentGameState();
     }
   });
 
@@ -295,6 +495,97 @@
   canvas.addEventListener("mousedown", () => { mouse.down = true; });
   window.addEventListener("mouseup", () => { mouse.down = false; });
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  function setAimFromPointer(e) {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = clamp(e.clientX - rect.left, 0, rect.width);
+    mouse.y = clamp(e.clientY - rect.top, 0, rect.height);
+  }
+
+  canvas.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "touch" && e.pointerType !== "pen") return;
+    e.preventDefault();
+    touchControls.aimPointerId = e.pointerId;
+    touchControls.aimShooting = true;
+    setAimFromPointer(e);
+    canvas.setPointerCapture?.(e.pointerId);
+  }, { passive: false });
+
+  canvas.addEventListener("pointermove", (e) => {
+    if (e.pointerId !== touchControls.aimPointerId) return;
+    e.preventDefault();
+    setAimFromPointer(e);
+  }, { passive: false });
+
+  function releaseAimPointer(e) {
+    if (e.pointerId !== touchControls.aimPointerId) return;
+    touchControls.aimShooting = false;
+    touchControls.aimPointerId = null;
+  }
+
+  canvas.addEventListener("pointerup", releaseAimPointer);
+  canvas.addEventListener("pointercancel", releaseAimPointer);
+
+  function bindHoldButton(id, stateKey) {
+    const button = document.getElementById(id);
+
+    const press = (e) => {
+      e.preventDefault();
+      button.classList.add("active");
+      touchControls[stateKey] = true;
+      button.setPointerCapture?.(e.pointerId);
+    };
+
+    const release = (e) => {
+      e.preventDefault();
+      button.classList.remove("active");
+      touchControls[stateKey] = false;
+    };
+
+    button.addEventListener("pointerdown", press, { passive: false });
+    button.addEventListener("pointerup", release, { passive: false });
+    button.addEventListener("pointercancel", release, { passive: false });
+    button.addEventListener("lostpointercapture", release, { passive: false });
+  }
+
+  bindHoldButton("leftBtn", "left");
+  bindHoldButton("rightBtn", "right");
+  bindHoldButton("fireBtn", "fire");
+
+  document.getElementById("jumpBtn").addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    touchControls.jumpQueued = true;
+    e.currentTarget.classList.add("active");
+  }, { passive: false });
+
+  document.getElementById("jumpBtn").addEventListener("pointerup", (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove("active");
+  }, { passive: false });
+
+  document.getElementById("jumpBtn").addEventListener("pointercancel", (e) => {
+    e.currentTarget.classList.remove("active");
+  });
+
+  document.getElementById("medkitBtn").addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    useMedkit();
+    e.currentTarget.classList.add("active");
+  }, { passive: false });
+
+  document.getElementById("medkitBtn").addEventListener("pointerup", (e) => {
+    e.currentTarget.classList.remove("active");
+  });
+
+  document.getElementById("restartBtn").addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    restartCurrentGameState();
+    e.currentTarget.classList.add("active");
+  }, { passive: false });
+
+  document.getElementById("restartBtn").addEventListener("pointerup", (e) => {
+    e.currentTarget.classList.remove("active");
+  });
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -1030,15 +1321,21 @@
     if (gameOver || gameWon) return;
 
     let move = 0;
-    if (keys["a"] || keys["arrowleft"]) move -= 1;
-    if (keys["d"] || keys["arrowright"]) move += 1;
+    if (keys["a"] || keys["arrowleft"] || touchControls.left) move -= 1;
+    if (keys["d"] || keys["arrowright"] || touchControls.right) move += 1;
 
     player.vx = move * player.speed;
 
-    const wantsJump = keys["w"] || keys["arrowup"] || keys[" "];
+    const wantsJump =
+      keys["w"] ||
+      keys["arrowup"] ||
+      keys[" "] ||
+      touchControls.jumpQueued;
+
     if (wantsJump && player.onGround) {
       player.vy = -player.jumpPower;
       player.onGround = false;
+      touchControls.jumpQueued = false;
     }
 
     player.vy += 1800 * dt;
@@ -1048,7 +1345,7 @@
       damagePlayer(999);
     }
 
-    if (mouse.down) shoot();
+    if (mouse.down || touchControls.fire || touchControls.aimShooting) shoot();
 
     updatePlayerBullets(dt);
     updateEnemyBullets(dt);
@@ -1550,6 +1847,9 @@
   function drawHUD() {
     ctx.save();
 
+    const hudScale = Math.min(1, Math.max(0.56, W / 760));
+    ctx.scale(hudScale, hudScale);
+
     ctx.fillStyle = "rgba(0,0,0,.44)";
     ctx.fillRect(16, 16, 430, 206);
 
@@ -1575,7 +1875,11 @@
     ctx.fillText(`FIRE RATE UPGRADES: ${player.fireRateUpgrades}  (+${Math.round((player.fireRateMultiplier - 1) * 100)}%)`, 30, 153);
 
     ctx.fillStyle = "#baffc5";
-    ctx.fillText(`MEDKITS: ${player.medkits}  (PRESS E TO USE)`, 30, 176);
+    const medkitControlText =
+      window.matchMedia("(hover: none), (pointer: coarse)").matches
+        ? "TAP MEDKIT TO USE"
+        : "PRESS E TO USE";
+    ctx.fillText(`MEDKITS: ${player.medkits}  (${medkitControlText})`, 30, 176);
 
     ctx.fillStyle = "rgba(255,255,255,.18)";
     ctx.fillRect(30, 188, 390, 18);
@@ -1683,7 +1987,7 @@
 
       ctx.textAlign = "center";
       ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 64px Arial";
+      ctx.font = `bold ${Math.max(38, Math.min(64, W * 0.08))}px Arial`;
       ctx.fillText("MISSION FAILED", W / 2, H / 2 - 50);
 
       ctx.font = "bold 26px Arial";
@@ -1703,7 +2007,7 @@
 
       ctx.textAlign = "center";
       ctx.fillStyle = "#f5d46a";
-      ctx.font = "bold 66px Arial";
+      ctx.font = `bold ${Math.max(34, Math.min(66, W * 0.075))}px Arial`;
       ctx.fillText("MISSION COMPLETE!", W / 2, H / 2 - 70);
 
       ctx.fillStyle = "#ffffff";
