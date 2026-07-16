@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Banana Quest - Graphics Update</title>
+<style>
+  body { margin:0; background:#7ec8df; display:flex; align-items:center; justify-content:center; height:100vh; font-family:Arial, sans-serif; }
+  canvas { background:#88d8f7; border:4px solid #222; image-rendering:auto; }
+</style>
+</head>
+<body>
+<canvas id="game" width="1200" height="700"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+const keys = {};
+addEventListener('keydown', e => keys[e.code] = true);
+addEventListener('keyup', e => keys[e.code] = false);
+
+let gameState = 'start';
+let lives = 3;
+let gotBanana = false;
+let bananaGiven = false;
+let splatTimer = 0;
+let respawnCooldown = 0;
+
+const gravity = 0.65;
+const player = { x:70, y:560, w:34, h:54, vx:0, vy:0, speed:4, jump:-13, onGround:false, facing:1, attack:0 };
+
+const platforms = [
+  {x:0,y:610,w:260,h:70},
+  {x:315,y:535,w:200,h:36},
+  {x:545,y:450,w:180,h:36},
+  {x:430,y:270,w:170,h:36},
+  {x:690,y:300,w:180,h:36},
+  {x:865,y:395,w:250,h:36},
+  {x:840,y:610,w:220,h:70}
+];
+
+const banana = { x:500, y:230, w:42, h:32 };
+const villager = { x:1005, y:330, w:36, h:64 };
+const master = { x:960, y:545, w:64, h:70 };
+
+let enemies = [
+  {x:590,y:397,w:40,h:42,vx:1.1,min:545,max:710,type:'minion',alive:true},
+  {x:965,y:348,w:42,h:46,vx:1.0,min:870,max:1080,type:'thief',alive:true},
+  {x:980,y:557,w:42,h:46,vx:1.0,min:850,max:1030,type:'thief',alive:true}
+];
+
+function resetPlayer() {
+  player.x = 70; player.y = 560; player.vx = 0; player.vy = 0; player.attack = 0;
+  respawnCooldown = 60;
+}
+function resetGame() {
+  lives = 3; gotBanana = false; bananaGiven = false; splatTimer = 0; gameState = 'playing'; resetPlayer();
+  enemies.forEach(e => e.alive = true);
+}
+function rects(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
+
+function roundRect(x,y,w,h,r,fill,stroke){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  if(fill){ctx.fillStyle=fill; ctx.fill();}
+  if(stroke){ctx.strokeStyle=stroke; ctx.lineWidth=3; ctx.stroke();}
+}
+
+function drawBackground(){
+  const g = ctx.createLinearGradient(0,0,0,700);
+  g.addColorStop(0,'#28aef5'); g.addColorStop(0.55,'#a9e8ff'); g.addColorStop(1,'#dff8ff');
+  ctx.fillStyle = g; ctx.fillRect(0,0,1200,700);
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  drawCloud(140,135,1.1); drawCloud(600,90,1.0); drawCloud(1050,155,1.3);
+  ctx.fillStyle='rgba(73,144,175,.28)';
+  for(let i=0;i<5;i++){ drawMountain(80+i*240,590,160+40*i); }
+  ctx.fillStyle='rgba(28,118,85,.35)';
+  for(let i=0;i<7;i++){ drawPalm(40+i*190,590,0.8+(i%3)*0.15); }
+}
+function drawCloud(x,y,s){
+  ctx.beginPath();
+  ctx.arc(x,y,38*s,0,Math.PI*2); ctx.arc(x+45*s,y-16*s,48*s,0,Math.PI*2); ctx.arc(x+95*s,y,40*s,0,Math.PI*2); ctx.arc(x+55*s,y+18*s,42*s,0,Math.PI*2);
+  ctx.fill();
+}
+function drawMountain(x,base,h){
+  ctx.beginPath(); ctx.moveTo(x,base); ctx.lineTo(x+80,base-h); ctx.lineTo(x+170,base); ctx.closePath(); ctx.fill();
+}
+function drawPalm(x,y,s){
+  ctx.fillRect(x,y-95*s,12*s,95*s);
+  ctx.beginPath();
+  for(let i=0;i<6;i++){ const a=i*Math.PI/3; ctx.ellipse(x+8*s+Math.cos(a)*28*s,y-100*s+Math.sin(a)*14*s,55*s,13*s,a,0,Math.PI*2); }
+  ctx.fill();
+}
+
+function drawPlatform(p){
+  ctx.fillStyle='#6b4226';
+  ctx.beginPath(); ctx.moveTo(p.x+15,p.y+18); ctx.lineTo(p.x+p.w-15,p.y+18); ctx.lineTo(p.x+p.w-40,p.y+p.h); ctx.lineTo(p.x+35,p.y+p.h); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#4a2d1c';
+  for(let i=0;i<p.w;i+=36){ ctx.beginPath(); ctx.arc(p.x+i+20,p.y+35,18,0,Math.PI*2); ctx.fill(); }
+  ctx.fillStyle='#46b84a'; roundRect(p.x,p.y,p.w,18,8,'#46b84a');
+  ctx.fillStyle='#7bd34d'; roundRect(p.x,p.y-4,p.w,12,8,'#7bd34d');
+  ctx.fillStyle='#2d8c35';
+  for(let i=12;i<p.w;i+=42){ ctx.fillRect(p.x+i,p.y+10,5,25+Math.random()*0); }
+  ctx.fillStyle='white';
+  for(let i=35;i<p.w;i+=80){ ctx.beginPath(); ctx.arc(p.x+i,p.y-8,4,0,Math.PI*2); ctx.arc(p.x+i+6,p.y-7,4,0,Math.PI*2); ctx.fill(); }
+}
+
+function drawBanana(x,y,big=false){
+  ctx.save(); ctx.translate(x,y); ctx.scale(big?1.3:1, big?1.3:1);
+  ctx.strokeStyle='#ffc400'; ctx.lineWidth=12; ctx.lineCap='round';
+  ctx.beginPath(); ctx.arc(0,0,28,0.15*Math.PI,0.85*Math.PI); ctx.stroke();
+  ctx.strokeStyle='#ffdd40'; ctx.lineWidth=7; ctx.beginPath(); ctx.arc(0,-4,28,0.18*Math.PI,0.78*Math.PI); ctx.stroke();
+  ctx.fillStyle='#6b3b1d'; ctx.fillRect(18,-20,6,10);
+  ctx.restore();
+}
+
+function drawHero(){
+  ctx.save(); ctx.translate(player.x+player.w/2, player.y+player.h/2); ctx.scale(player.facing,1);
+  ctx.fillStyle='#2d6cdf'; roundRect(-16,-3,32,32,8,'#2d6cdf','#1d3f85');
+  ctx.fillStyle='#1f335c'; ctx.fillRect(-14,25,10,22); ctx.fillRect(5,25,10,22);
+  ctx.fillStyle='#6b3b1d'; ctx.fillRect(-17,44,14,6); ctx.fillRect(3,44,14,6);
+  ctx.fillStyle='#f6bd77'; ctx.beginPath(); ctx.arc(0,-23,17,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#7b3f16'; ctx.beginPath(); ctx.arc(-5,-34,14,Math.PI,Math.PI*2); ctx.arc(6,-33,13,Math.PI,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(-5,-23,2,0,Math.PI*2); ctx.arc(6,-23,2,0,Math.PI*2); ctx.fill();
+  if(player.attack>0){ ctx.strokeStyle='#eee'; ctx.lineWidth=5; ctx.beginPath(); ctx.arc(22,-2,24,-0.6,0.8); ctx.stroke(); }
+  ctx.restore();
+}
+
+function drawGoblin(e){
+  ctx.save(); ctx.translate(e.x+e.w/2,e.y+e.h/2); ctx.scale(e.vx>0?1:-1,1);
+  const main = e.type==='thief' ? '#d84a31' : '#7424a8';
+  ctx.fillStyle='#6fa64b'; ctx.beginPath(); ctx.arc(0,-8,22,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=main; roundRect(-18,4,36,33,8,main,'#3b1a55');
+  ctx.fillStyle='#111'; roundRect(-17,-15,34,10,4,'#111');
+  ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(-7,-10,5,0,Math.PI*2); ctx.arc(8,-10,5,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(-7,-10,2,0,Math.PI*2); ctx.arc(8,-10,2,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=main; ctx.beginPath(); ctx.moveTo(-18,-27); ctx.lineTo(0,-14); ctx.lineTo(18,-27); ctx.lineTo(12,-12); ctx.lineTo(-12,-12); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function drawVillager(){ drawPerson(villager.x,villager.y,'#7c5a37'); }
+function drawPerson(x,y,shirt){
+  ctx.fillStyle=shirt; roundRect(x,y+25,36,35,8,shirt,'#3b2817');
+  ctx.fillStyle='#f6bd77'; ctx.beginPath(); ctx.arc(x+18,y+16,16,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#111'; ctx.fillRect(x+4,y,28,8);
+  ctx.beginPath(); ctx.arc(x+12,y+15,2,0,Math.PI*2); ctx.arc(x+24,y+15,2,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#222'; ctx.fillRect(x+8,y+58,8,25); ctx.fillRect(x+22,y+58,8,25);
+}
+function drawMaster(){
+  ctx.fillStyle='#5b1e8c'; roundRect(master.x,master.y+25,64,45,10,'#5b1e8c','#2e0f45');
+  ctx.fillStyle='#6fa64b'; ctx.beginPath(); ctx.arc(master.x+32,master.y+18,24,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#111'; roundRect(master.x+10,master.y+10,44,10,4,'#111');
+  ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(master.x+23,master.y+15,5,0,Math.PI*2); ctx.arc(master.x+41,master.y+15,5,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#111'; ctx.fillRect(master.x+22,master.y+14,4,3); ctx.fillRect(master.x+40,master.y+14,4,3);
+  ctx.fillStyle='#4b134f'; ctx.beginPath(); ctx.moveTo(master.x+4,master.y+0); ctx.lineTo(master.x+60,master.y+0); ctx.lineTo(master.x+52,master.y+18); ctx.lineTo(master.x+12,master.y+18); ctx.closePath(); ctx.fill();
+}
+function speech(text,x,y){
+  roundRect(x,y,170,50,12,'#fff7e9','#6b4a2c');
+  ctx.fillStyle='#222'; ctx.font='20px Arial'; ctx.textAlign='center';
+  const parts = text.split('|'); parts.forEach((t,i)=>ctx.fillText(t,x+85,y+22+i*22));
+}
+function drawHUD(){
+  roundRect(25,20,390,58,8,'#f5d59b','#7a4b22');
+  drawBanana(60,50,false); ctx.fillStyle='#5a2c12'; ctx.font='bold 28px Arial'; ctx.textAlign='left'; ctx.fillText('QUEST: Find the banana!',95,58);
+  ctx.fillStyle='#111'; ctx.font='bold 30px Arial'; ctx.fillText('LIVES:',925,58);
+  for(let i=0;i<lives;i++){ drawHeart(1025+i*50,45); }
+}
+function drawHeart(x,y){
+  ctx.fillStyle='#e53935'; ctx.beginPath(); ctx.moveTo(x,y+18); ctx.bezierCurveTo(x-25,y-5,x-5,y-22,x,y-8); ctx.bezierCurveTo(x+5,y-22,x+25,y-5,x,y+18); ctx.fill();
+}
+
+function update(){
+  if(gameState==='start'){ if(keys.Space) resetGame(); return; }
+  if(gameState==='gameover'){ if(keys.Space) resetGame(); return; }
+  if(respawnCooldown>0) respawnCooldown--;
+  player.vx = 0;
+  if(keys.ArrowLeft || keys.KeyA){ player.vx=-player.speed; player.facing=-1; }
+  if(keys.ArrowRight || keys.KeyD){ player.vx=player.speed; player.facing=1; }
+  if((keys.ArrowUp||keys.Space||keys.KeyW) && player.onGround){ player.vy=player.jump; player.onGround=false; }
+  if(keys.KeyF && player.attack<=0) player.attack=14;
+  if(player.attack>0) player.attack--;
+  player.x += player.vx; player.y += player.vy; player.vy += gravity; player.onGround=false;
+  platforms.forEach(p=>{
+    if(player.x+player.w>p.x && player.x<p.x+p.w && player.y+player.h>p.y && player.y+player.h<p.y+28 && player.vy>=0){
+      player.y=p.y-player.h; player.vy=0; player.onGround=true;
+    }
+  });
+  if(player.y>720){ loseLife(); }
+  if(!gotBanana && rects(player, banana)){ gotBanana=true; }
+  if(gotBanana && !bananaGiven && rects(player,villager)){ bananaGiven=true; splatTimer=100; }
+  enemies.forEach(e=>{
+    if(!e.alive) return;
+    e.x += e.vx; if(e.x<e.min || e.x>e.max) e.vx *= -1;
+    if(player.attack>0){ const hit = {x: player.facing>0 ? player.x+player.w : player.x-30, y:player.y+10, w:35, h:30}; if(rects(hit,e)) e.alive=false; }
+    if(respawnCooldown<=0 && rects(player,e)) loseLife();
+  });
+  player.x = Math.max(0,Math.min(canvas.width-player.w,player.x));
+  if(splatTimer>0) splatTimer--; 
+}
+function loseLife(){
+  lives--; if(lives<=0){ gameState='gameover'; } else resetPlayer();
+}
+function draw(){
+  drawBackground(); platforms.forEach(drawPlatform);
+  if(!gotBanana) { ctx.save(); ctx.shadowColor='gold'; ctx.shadowBlur=25; drawBanana(banana.x+20,banana.y+18,true); ctx.restore(); }
+  enemies.forEach(e=>{ if(e.alive) drawGoblin(e); });
+  drawVillager(); drawMaster();
+  speech('Please find|me a banana!',890,210); speech('Bring me|the banana!',890,505);
+  drawHero(); drawHUD();
+  ctx.fillStyle='#111'; ctx.font='18px Arial'; ctx.textAlign='left'; ctx.fillText('Move: arrows/WASD   Jump: Space/Up/W   Attack: F',25,675);
+  if(gotBanana && !bananaGiven){ ctx.fillStyle='#5a2c12'; ctx.font='bold 28px Arial'; ctx.fillText('Now bring the banana to the villager!',390,95); }
+  if(splatTimer>0){ ctx.fillStyle='rgba(255,214,0,.85)'; ctx.beginPath(); ctx.arc(1000,350,70,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#6b3b1d'; ctx.font='bold 36px Arial'; ctx.textAlign='center'; ctx.fillText('BANANA SPLAT!',1000,360); }
+  if(gameState==='start') overlay('BANANA QUEST','Press SPACE to start');
+  if(gameState==='gameover') overlay('GAME OVER','Press SPACE to restart');
+}
+function overlay(title,sub){
+  ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(0,0,1200,700);
+  roundRect(360,230,480,190,18,'#fff7e9','#6b4a2c');
+  ctx.fillStyle='#5a2c12'; ctx.font='bold 50px Arial'; ctx.textAlign='center'; ctx.fillText(title,600,310);
+  ctx.font='28px Arial'; ctx.fillText(sub,600,365);
+}
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>
