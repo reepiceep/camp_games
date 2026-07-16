@@ -100,6 +100,7 @@
     </div>
     <div class="group">
       <button data-key="Space" aria-label="Jump">⤴</button>
+      <button data-key="KeyF" aria-label="Fire">💥</button>
       <button data-key="Enter" aria-label="Start or continue">▶</button>
     </div>
   </div>
@@ -125,7 +126,45 @@
     let transitionTicks = 0;
     let messageTicks = 0;
     let particles = [];
+    let heartDrops = [];
+    let bullets = [];
     let frame = 0;
+    let jumpWasDown = false;
+    let fireWasDown = false;
+    let cutscenePhase = 0;
+    let cutsceneTicks = 0;
+    let selectedGunIndex = 0;
+
+    const gunChoices = [
+      { name: "Banana Blaster", color: "#ffd54a", speed: 9, cooldown: 18, damage: 1 },
+      { name: "Blueberry Pew-Pew", color: "#60a5fa", speed: 11, cooldown: 13, damage: 1 },
+      { name: "Volcano Popper", color: "#fb7185", speed: 8, cooldown: 24, damage: 2 }
+    ];
+
+    const profile = loadProfile();
+    profile.joinCount += 1;
+    if (profile.joinCount >= 3) profile.willowUnlocked = true;
+    saveProfile();
+
+    function loadProfile() {
+      try {
+        const stored = JSON.parse(localStorage.getItem("bananaQuestProfile") || "{}");
+        return {
+          joinCount: Number(stored.joinCount || 0),
+          cutsceneSeen: Boolean(stored.cutsceneSeen),
+          gunUnlocked: Boolean(stored.gunUnlocked),
+          chosenGun: Number.isInteger(stored.chosenGun) ? stored.chosenGun : 0,
+          willowUnlocked: Boolean(stored.willowUnlocked),
+          editionNumber: stored.editionNumber || null
+        };
+      } catch {
+        return { joinCount: 0, cutsceneSeen: false, gunUnlocked: false, chosenGun: 0, willowUnlocked: false, editionNumber: null };
+      }
+    }
+
+    function saveProfile() {
+      localStorage.setItem("bananaQuestProfile", JSON.stringify(profile));
+    }
 
     const player = {
       x: 70, y: 430, w: 34, h: 62,
@@ -135,8 +174,11 @@
       onGround: false,
       hasBanana: false,
       facing: 1,
-      invulnerable: 0
+      invulnerable: 0,
+      gunCooldown: 0
     };
+
+    const willow = { x: 20, y: 450, w: 34, h: 24 };
 
     let platforms = [];
     let enemies = [];
@@ -272,11 +314,19 @@
       friend = {x:data.friend.x,y:data.friend.y,w:36,h:64};
       boss = null;
 
+      const instantKillTypes = new Set(["snake", "yeti", "magma", "golem"]);
       enemies = data.enemies.map(([x,y,type,speed], i) => ({
-        x,y,w:36,h:36,type,speed,dir:i%2? -1:1,alive:true,phase:i*0.8,chaseSpeed:speed+0.85
+        x,y,w:36,h:36,type,speed,dir:i%2? -1:1,alive:true,phase:i*0.8,
+        chaseSpeed:speed+0.85,
+        instantKill: instantKillTypes.has(type)
       }));
 
       particles = [];
+      heartDrops = [];
+      bullets = [];
+      player.gunCooldown = 0;
+      willow.x = player.x - 42;
+      willow.y = player.y + 34;
       clearKeys();
     }
 
@@ -305,6 +355,8 @@
 
     function clearKeys() {
       Object.keys(keys).forEach(k => keys[k] = false);
+      jumpWasDown = false;
+      fireWasDown = false;
     }
 
     function rects(a,b) {
@@ -335,6 +387,126 @@
           life:30+Math.random()*30,size:2+Math.random()*5,color
         });
       }
+    }
+
+
+    function defeatEnemy(enemy) {
+      if (!enemy.alive) return;
+      enemy.alive = false;
+      burst(enemy.x+18,enemy.y+18,18,"#d8b4fe");
+
+      // Every defeated enemy has a 30% chance to drop a heart.
+      if (Math.random() < 0.30) {
+        heartDrops.push({
+          x: enemy.x + 7, y: enemy.y + 4, w: 26, h: 24,
+          vy: -3.5, life: 900, settled: false
+        });
+      }
+    }
+
+    function trySpecialCutscene() {
+      if (profile.cutsceneSeen || profile.gunUnlocked || state !== "playing") return;
+      // Requested chance: 10% on a jump. It can happen only once in this browser.
+      if (Math.random() < 0.10) {
+        profile.cutsceneSeen = true;
+        profile.editionNumber = profile.editionNumber || (1 + Math.floor(Math.random() * 10000));
+        saveProfile();
+        state = "cutscene";
+        cutscenePhase = 0;
+        cutsceneTicks = 90;
+        player.vx = 0;
+        player.vy = 0;
+        clearKeys();
+      }
+    }
+
+    function updateCutscene() {
+      if (state !== "cutscene") return;
+      cutsceneTicks--;
+      if (cutsceneTicks > 0) return;
+
+      cutscenePhase++;
+      if (cutscenePhase === 1) cutsceneTicks = 75;
+      else if (cutscenePhase === 2) cutsceneTicks = 70;
+      else if (cutscenePhase === 3) cutsceneTicks = 75;
+      else {
+        state = "gunselect";
+        selectedGunIndex = profile.chosenGun || 0;
+      }
+    }
+
+    function chooseGun() {
+      profile.chosenGun = selectedGunIndex;
+      profile.gunUnlocked = true;
+      saveProfile();
+      state = "playing";
+      player.invulnerable = 90;
+      messageTicks = 180;
+    }
+
+    function fireGun() {
+      if (!profile.gunUnlocked || state !== "playing" || player.gunCooldown > 0) return;
+      const gun = gunChoices[profile.chosenGun];
+      bullets.push({
+        x: player.facing > 0 ? player.x + player.w : player.x - 12,
+        y: player.y + 28,
+        w: 13, h: 7,
+        vx: gun.speed * player.facing,
+        color: gun.color,
+        damage: gun.damage,
+        life: 100
+      });
+      player.gunCooldown = gun.cooldown;
+      burst(player.x + (player.facing > 0 ? player.w : 0), player.y + 31, 5, gun.color);
+    }
+
+    function updateBullets() {
+      for (const b of bullets) {
+        b.x += b.vx;
+        b.life--;
+        for (const e of enemies) {
+          if (!e.alive || b.life <= 0) continue;
+          if (rects(b,e)) {
+            e.hitPoints = (e.hitPoints || (e.type === "golem" ? 2 : 1)) - b.damage;
+            b.life = 0;
+            if (e.hitPoints <= 0) defeatEnemy(e);
+            else burst(e.x+18,e.y+18,8,b.color);
+          }
+        }
+      }
+      bullets = bullets.filter(b => b.life > 0 && b.x > -30 && b.x < W+30);
+    }
+
+    function updateHeartDrops() {
+      for (const h of heartDrops) {
+        h.life--;
+        if (!h.settled) {
+          h.vy += 0.22;
+          h.y += h.vy;
+          for (const p of platforms.concat(movers)) {
+            if (h.x+h.w > p.x && h.x < p.x+p.w && h.y+h.h >= p.y && h.y+h.h-h.vy <= p.y) {
+              h.y = p.y-h.h;
+              h.vy = 0;
+              h.settled = true;
+            }
+          }
+        }
+        if (state === "playing" && rects(player,h)) {
+          lives = Math.min(5, lives + 1);
+          h.life = 0;
+          burst(h.x+13,h.y+12,16,"#fb7185");
+          messageTicks = 90;
+        }
+      }
+      heartDrops = heartDrops.filter(h => h.life > 0);
+    }
+
+    function updateWillow() {
+      if (!profile.willowUnlocked || state !== "playing") return;
+      const targetX = player.x - player.facing * 44;
+      const targetY = player.y + 38;
+      willow.x += (targetX - willow.x) * 0.08;
+      willow.y += (targetY - willow.y) * 0.08;
     }
 
     function updateParticles() {
@@ -374,11 +546,19 @@
         player.vx *= decel;
       }
 
-      if ((keys.Space || keys.ArrowUp || keys.KeyW) && player.onGround) {
+      const jumpDown = keys.Space || keys.ArrowUp || keys.KeyW;
+      if (jumpDown && !jumpWasDown && player.onGround) {
         player.vy = -player.jump;
         player.onGround = false;
         burst(player.x+player.w/2,player.y+player.h,8,"#ffffff");
+        trySpecialCutscene();
       }
+      jumpWasDown = Boolean(jumpDown);
+
+      const fireDown = keys.KeyF || keys.KeyX;
+      if (fireDown && !fireWasDown) fireGun();
+      fireWasDown = Boolean(fireDown);
+      if (player.gunCooldown > 0) player.gunCooldown--;
 
       if (data.wind && Math.sin(frame*0.025) > 0.5) {
         player.vx -= 0.035;
@@ -468,11 +648,12 @@
         }
 
         const stomp = player.vy > 0 && player.y+player.h-e.y < 26;
-        if (stomp) {
-          e.alive = false;
+        if (stomp && !e.instantKill) {
+          defeatEnemy(e);
           player.vy = -9;
-          burst(e.x+18,e.y+18,18,"#d8b4fe");
         } else {
+          // Skull-marked enemies are instant-kill enemies and cannot be stomped.
+          player.invulnerable = 0;
           loseLife();
           return;
         }
@@ -491,6 +672,7 @@
         if (transitionTicks <= 0) restartCurrentLevel();
       }
       if (messageTicks > 0) messageTicks--;
+      updateCutscene();
     }
 
     function roundedRect(x,y,w,h,r,fill,stroke) {
@@ -711,11 +893,73 @@
       ctx.fillStyle="#111";
       ctx.beginPath(); ctx.arc(12,14,2,0,Math.PI*2); ctx.arc(26,14,2,0,Math.PI*2); ctx.fill();
 
-      if (player.hasBanana) {
+      if (e.instantKill) {
+        ctx.fillStyle="#111827";
+        ctx.font="bold 18px Arial";
+        ctx.fillText("☠",8,-7);
+      } else if (player.hasBanana) {
         ctx.fillStyle="#fff";
         ctx.font="bold 20px Arial";
         ctx.fillText("!",14,-8);
       }
+      ctx.restore();
+    }
+
+
+    function drawHeartDrops() {
+      for (const h of heartDrops) {
+        ctx.save();
+        ctx.translate(h.x + h.w/2, h.y + h.h/2 + Math.sin(frame*.1+h.x)*2);
+        ctx.fillStyle="#ef4444";
+        ctx.beginPath();
+        ctx.moveTo(0,10);
+        ctx.bezierCurveTo(-18,-2,-12,-15,0,-7);
+        ctx.bezierCurveTo(12,-15,18,-2,0,10);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function drawBullets() {
+      for (const b of bullets) {
+        ctx.save();
+        ctx.shadowColor=b.color;
+        ctx.shadowBlur=12;
+        roundedRect(b.x,b.y,b.w,b.h,4,b.color);
+        ctx.restore();
+      }
+    }
+
+    function drawWillow() {
+      if (!profile.willowUnlocked) return;
+      ctx.save();
+      ctx.translate(willow.x,willow.y);
+      ctx.fillStyle="rgba(0,0,0,.16)";
+      ctx.beginPath(); ctx.ellipse(17,23,20,5,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle="#f5f5f4";
+      ctx.beginPath(); ctx.ellipse(17,12,18,11,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle="#9ca3af";
+      ctx.beginPath(); ctx.arc(27,9,9,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(23,2); ctx.lineTo(25,-5); ctx.lineTo(30,2); ctx.fill();
+      ctx.fillStyle="#111827";
+      ctx.beginPath(); ctx.arc(29,8,1.5,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle="#9ca3af"; ctx.lineWidth=5;
+      ctx.beginPath(); ctx.arc(2,10,12,1.6,4.4); ctx.stroke();
+      ctx.fillStyle="#fff";
+      ctx.font="bold 12px Arial";
+      ctx.fillText("Willow",0,-10);
+      ctx.restore();
+    }
+
+    function drawGun() {
+      if (!profile.gunUnlocked) return;
+      const gun=gunChoices[profile.chosenGun];
+      ctx.save();
+      ctx.translate(player.x + (player.facing>0 ? 27 : 7), player.y+34);
+      ctx.scale(player.facing,1);
+      roundedRect(0,0,22,8,3,gun.color);
+      ctx.fillStyle="#374151";
+      ctx.fillRect(5,6,6,8);
       ctx.restore();
     }
 
@@ -743,6 +987,17 @@
       ctx.fillText("Lives",810,42);
       ctx.font="27px Arial";
       ctx.fillText("❤️".repeat(Math.max(0,lives)),870,47);
+
+      if (profile.gunUnlocked) {
+        const gun=gunChoices[profile.chosenGun];
+        roundedRect(385,14,385,68,16,"rgba(15,23,42,.72)");
+        ctx.fillStyle="#fff";
+        ctx.font="bold 17px Arial";
+        ctx.fillText(`🔫 ${gun.name} — F / X to fire`,402,42);
+        ctx.font="14px Arial";
+        ctx.fillStyle="#dbeafe";
+        ctx.fillText(profile.willowUnlocked ? "🐈 Willow is following you" : `Willow unlock: launch ${Math.min(profile.joinCount,3)}/3`,402,65);
+      }
 
       if (player.hasBanana && messageTicks>0) {
         roundedRect(215,95,570,48,16,"rgba(127,29,29,.86)");
@@ -785,10 +1040,90 @@
       if (!banana.collected) drawBanana(banana.x,banana.y);
       drawPerson(friend.x,friend.y,currentLevel===4?"#f59e0b":"#ef4444","#2b1a12",true);
 
+      drawHeartDrops();
       enemies.filter(e=>e.alive).forEach(drawEnemy);
+      drawWillow();
       drawPlayer();
+      drawGun();
+      drawBullets();
       drawParticles();
       drawHUD();
+    }
+
+
+    function drawCutscene() {
+      ctx.fillStyle="rgba(8,15,30,.35)";
+      ctx.fillRect(0,0,W,H);
+      roundedRect(120,70,760,460,24,"rgba(246,239,220,.97)");
+      ctx.fillStyle="#2f231c";
+      ctx.font="bold 29px Arial";
+      ctx.textAlign="center";
+      ctx.fillText(`SECRET CUTSCENE — Limited Edition #${profile.editionNumber} / 10000`,500,112);
+
+      // Bedroom and oven.
+      ctx.fillStyle="#c7b299"; ctx.fillRect(155,145,690,330);
+      ctx.fillStyle="#8b5e3c"; ctx.fillRect(180,350,250,95);
+      ctx.fillStyle="#555"; roundedRect(590,245,145,160,12,"#555");
+      ctx.fillStyle="#111"; roundedRect(610,275,105,80,8,"#111");
+      ctx.fillStyle="#f97316"; ctx.beginPath(); ctx.arc(663,315,28,0,Math.PI*2); ctx.fill();
+
+      if (cutscenePhase === 0) {
+        drawPerson(310,280,"#2185d0","#5c321b");
+        drawBanana(390,300);
+        ctx.fillStyle="#2f231c"; ctx.font="24px Arial";
+        ctx.fillText("The hero finds the banana and carries it to the oven...",500,500);
+      } else if (cutscenePhase === 1) {
+        drawPerson(470,280,"#2185d0","#5c321b");
+        drawBanana(640,300,true);
+        ctx.fillStyle="#2f231c"; ctx.font="24px Arial";
+        ctx.fillText("The banana goes into the oven. One second later...",500,500);
+      } else if (cutscenePhase === 2) {
+        ctx.fillStyle="#ffb703";
+        for(let i=0;i<24;i++){
+          const a=i*Math.PI*2/24;
+          ctx.beginPath(); ctx.moveTo(663,315);
+          ctx.lineTo(663+Math.cos(a)*(70+(i%3)*25),315+Math.sin(a)*(70+(i%3)*25));
+          ctx.lineTo(663+Math.cos(a+.12)*35,315+Math.sin(a+.12)*35);
+          ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle="#b91c1c"; ctx.font="bold 55px Arial"; ctx.fillText("BOOM!",663,330);
+        ctx.fillStyle="#2f231c"; ctx.font="24px Arial"; ctx.fillText("The oven explodes!",500,500);
+      } else {
+        drawPerson(360,280,"#2185d0","#5c321b");
+        ctx.fillStyle="#374151"; roundedRect(530,320,150,45,10,"#374151");
+        ctx.fillStyle="#2f231c"; ctx.font="24px Arial";
+        ctx.fillText("The hero walks out and discovers three mysterious pew-pews.",500,500);
+      }
+      ctx.textAlign="left";
+    }
+
+    function drawGunSelection() {
+      ctx.fillStyle="rgba(8,15,30,.6)";
+      ctx.fillRect(0,0,W,H);
+      roundedRect(90,70,820,470,24,"rgba(255,255,255,.96)");
+      ctx.textAlign="center";
+      ctx.fillStyle="#172033";
+      ctx.font="bold 38px Arial";
+      ctx.fillText("PICK ONE PEW-PEW",500,125);
+      ctx.font="18px Arial";
+      ctx.fillText("Use LEFT/RIGHT and ENTER. Your choice is saved for future games.",500,158);
+
+      gunChoices.forEach((g,i)=>{
+        const x=150+i*245;
+        const selected=i===selectedGunIndex;
+        roundedRect(x,205,205,220,18,selected?"#fef3c7":"#e5e7eb",selected?"#f59e0b":"#94a3b8");
+        ctx.lineWidth=selected?5:2;
+        ctx.fillStyle=g.color;
+        roundedRect(x+42,250,120,38,10,g.color);
+        ctx.fillStyle="#374151"; ctx.fillRect(x+78,285,28,50);
+        ctx.fillStyle="#172033"; ctx.font="bold 19px Arial"; ctx.fillText(g.name,x+102,365);
+        ctx.font="15px Arial";
+        ctx.fillText(i===0?"Balanced and bright":i===1?"Fastest firing":"Heavy two-hit blast",x+102,395);
+      });
+
+      ctx.fillStyle="#172033"; ctx.font="bold 21px Arial";
+      ctx.fillText(`Limited local edition #${profile.editionNumber} / 10000`,500,480);
+      ctx.textAlign="left";
     }
 
     function draw() {
@@ -800,8 +1135,22 @@
         panel("BANANA QUEST",[
           "Four worlds. One heroic banana delivery.",
           "Move: Arrow Keys / A-D",
-          "Jump: Space / Up / W"
+          "Jump: Space / Up / W",
+          profile.gunUnlocked ? `Gun equipped: ${gunChoices[profile.chosenGun].name}` : "A secret one-time gun event can appear while jumping.",
+          profile.willowUnlocked ? "Willow the white-and-grey cat has joined you!" : `Launches toward Willow: ${Math.min(profile.joinCount,3)}/3`
         ],"Press ENTER or Tap Start");
+        return;
+      }
+
+      if (state==="cutscene") {
+        drawBackground("forest");
+        drawCutscene();
+        return;
+      }
+
+      if (state==="gunselect") {
+        drawBackground("forest");
+        drawGunSelection();
         return;
       }
 
@@ -837,6 +1186,9 @@
       updateMovers();
       updatePlayer();
       updateEnemies();
+      updateBullets();
+      updateHeartDrops();
+      updateWillow();
       updateParticles();
       updateState();
       draw();
@@ -850,20 +1202,44 @@
     window.addEventListener("keydown", e => {
       keys[e.code]=true;
       if (["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code)) e.preventDefault();
+      if (state==="gunselect") {
+        if (e.code==="ArrowLeft" || e.code==="KeyA") selectedGunIndex=(selectedGunIndex+gunChoices.length-1)%gunChoices.length;
+        if (e.code==="ArrowRight" || e.code==="KeyD") selectedGunIndex=(selectedGunIndex+1)%gunChoices.length;
+        if (e.code==="Enter" || e.code==="Space") chooseGun();
+        return;
+      }
       if (e.code==="Enter") startAction();
     });
 
     window.addEventListener("keyup", e => keys[e.code]=false);
     window.addEventListener("blur",clearKeys);
 
-    canvas.addEventListener("click",startAction);
-    canvas.addEventListener("touchstart",e=>{ e.preventDefault(); startAction(); },{passive:false});
+    canvas.addEventListener("click",e=>{
+      if (state==="gunselect") {
+        const r=canvas.getBoundingClientRect();
+        const x=(e.clientX-r.left)*(W/r.width);
+        if (x<395) selectedGunIndex=0;
+        else if (x<640) selectedGunIndex=1;
+        else selectedGunIndex=2;
+        chooseGun();
+      } else startAction();
+    });
+    canvas.addEventListener("touchstart",e=>{
+      e.preventDefault();
+      if (state==="gunselect") {
+        const r=canvas.getBoundingClientRect();
+        const x=(e.touches[0].clientX-r.left)*(W/r.width);
+        selectedGunIndex=x<395?0:x<640?1:2;
+        chooseGun();
+      } else startAction();
+    },{passive:false});
 
     document.querySelectorAll("button").forEach(btn => {
       const key=btn.dataset.key;
       const down=e=>{
         e.preventDefault();
         if (key==="Enter") startAction();
+        else if (key==="KeyF") fireGun();
         else keys[key]=true;
       };
       const up=e=>{
