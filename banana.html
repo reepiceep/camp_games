@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Banana Quest</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #87ceeb;
+      overflow: hidden;
+      font-family: Arial;
+      touch-action: none;
+    }
+
+    #gameWrapper {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+      background: linear-gradient(#7dd8ff, #dff7ff);
+      max-width: 100vw;
+      max-height: 100vh;
+      width: 100vw;
+      height: auto;
+    }
+
+    #mobileControls {
+      position: fixed;
+      bottom: 18px;
+      left: 0;
+      right: 0;
+      display: none;
+      justify-content: space-between;
+      padding: 0 24px;
+      pointer-events: none;
+    }
+
+    .controlGroup {
+      display: flex;
+      gap: 14px;
+      pointer-events: auto;
+    }
+
+    .mobileBtn {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      border: 4px solid #222;
+      background: rgba(255,255,255,0.75);
+      font-size: 30px;
+      font-weight: bold;
+      color: #222;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .mobileBtn:active {
+      background: #ffd54f;
+      transform: scale(0.95);
+    }
+
+    @media (hover: none), (pointer: coarse) {
+      #mobileControls {
+        display: flex;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div id="gameWrapper">
+  <canvas id="gameCanvas" width="1000" height="600"></canvas>
+
+  <div id="mobileControls">
+    <div class="controlGroup">
+      <button class="mobileBtn" data-key="ArrowLeft">◀</button>
+      <button class="mobileBtn" data-key="ArrowRight">▶</button>
+    </div>
+
+    <div class="controlGroup">
+      <button class="mobileBtn" data-key="Space">⤴</button>
+      <button class="mobileBtn" data-key="Enter">▶</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+
+  let gameState = "start";
+  let lives = 3;
+
+  const player = {
+    x: 60, y: 450, width: 35, height: 65,
+    velocityX: 0, velocityY: 0,
+    speed: 3, jumpPower: 13,
+    onGround: false,
+    hasBanana: false
+  };
+
+  const banana = { x: 380, y: 100, width: 40, height: 40, collected: false };
+  const friend = { x: 870, y: 255, width: 35, height: 65, died: false };
+  const master = { x: 900, y: 485, width: 50, height: 65 };
+
+  let enemies = [];
+
+  const platforms = [
+    { x: 0, y: 550, width: 230, height: 50 },
+    { x: 280, y: 480, width: 170, height: 30 },
+    { x: 520, y: 400, width: 170, height: 30 },
+    { x: 750, y: 320, width: 200, height: 30 },
+    { x: 570, y: 220, width: 150, height: 30 },
+    { x: 330, y: 150, width: 150, height: 30 }
+  ];
+
+  const gravity = 0.6;
+  const friction = 0.8;
+  const keys = {};
+
+  window.addEventListener("keydown", e => {
+    keys[e.code] = true;
+
+    if (e.code === "Space" || e.code === "ArrowUp") {
+      e.preventDefault();
+    }
+
+    if (gameState === "start" && e.code === "Enter") {
+      startGame();
+    }
+
+    if (gameState === "gameOver" && e.code === "Enter") {
+      lives = 3;
+      startGame();
+    }
+  });
+
+  window.addEventListener("keyup", e => {
+    keys[e.code] = false;
+  });
+
+  canvas.addEventListener("touchstart", e => {
+    e.preventDefault();
+
+    if (gameState === "start") {
+      startGame();
+    }
+
+    if (gameState === "gameOver") {
+      lives = 3;
+      startGame();
+    }
+  });
+
+  canvas.addEventListener("click", () => {
+    if (gameState === "start") {
+      startGame();
+    }
+
+    if (gameState === "gameOver") {
+      lives = 3;
+      startGame();
+    }
+  });
+
+  document.querySelectorAll(".mobileBtn").forEach(button => {
+    const key = button.dataset.key;
+
+    button.addEventListener("touchstart", e => {
+      e.preventDefault();
+
+      if (key === "Enter") {
+        if (gameState === "start") {
+          startGame();
+        } else if (gameState === "gameOver") {
+          lives = 3;
+          startGame();
+        }
+      } else {
+        keys[key] = true;
+      }
+    });
+
+    button.addEventListener("touchend", e => {
+      e.preventDefault();
+      keys[key] = false;
+    });
+
+    button.addEventListener("mousedown", e => {
+      e.preventDefault();
+
+      if (key === "Enter") {
+        if (gameState === "start") {
+          startGame();
+        } else if (gameState === "gameOver") {
+          lives = 3;
+          startGame();
+        }
+      } else {
+        keys[key] = true;
+      }
+    });
+
+    button.addEventListener("mouseup", e => {
+      e.preventDefault();
+      keys[key] = false;
+    });
+
+    button.addEventListener("mouseleave", () => {
+      keys[key] = false;
+    });
+  });
+
+  function startGame() {
+    gameState = "playing";
+    resetLevel();
+  }
+
+  function resetLevel() {
+    player.x = 60;
+    player.y = 450;
+    player.velocityX = 0;
+    player.velocityY = 0;
+    player.hasBanana = false;
+
+    banana.collected = false;
+    friend.died = false;
+
+    enemies = [
+      { x: 300, y: 445, width: 35, height: 35, speed: 1, direction: 1, type: "normal", alive: true },
+      { x: 560, y: 365, width: 35, height: 35, speed: 1, direction: -1, type: "normal", alive: true },
+      { x: 720, y: 515, width: 35, height: 35, speed: 1.5, direction: -1, type: "thief", alive: true },
+      { x: 820, y: 285, width: 35, height: 35, speed: 1.2, direction: -1, type: "thief", alive: true }
+    ];
+  }
+
+  function loseLife() {
+    lives--;
+
+    if (lives <= 0) {
+      gameState = "gameOver";
+    } else {
+      gameState = "start";
+      resetLevel();
+    }
+  }
+
+  function isColliding(a, b) {
+    return (
+            a.x < b.x + b.width &&
+            a.x + a.width > b.x &&
+            a.y < b.y + b.height &&
+            a.y + a.height > b.y
+    );
+  }
+
+  function updatePlayer() {
+    if (gameState !== "playing") return;
+
+    if (keys["ArrowLeft"] || keys["KeyA"]) player.velocityX = -player.speed;
+    if (keys["ArrowRight"] || keys["KeyD"]) player.velocityX = player.speed;
+
+    if (!keys["ArrowLeft"] && !keys["ArrowRight"] && !keys["KeyA"] && !keys["KeyD"]) {
+      player.velocityX *= friction;
+    }
+
+    if ((keys["Space"] || keys["ArrowUp"] || keys["KeyW"]) && player.onGround) {
+      player.velocityY = -player.jumpPower;
+      player.onGround = false;
+    }
+
+    player.velocityY += gravity;
+
+    const previousBottom = player.y + player.height;
+
+    player.x += player.velocityX;
+    player.y += player.velocityY;
+
+    if (player.x < 0) player.x = 0;
+    if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+
+    player.onGround = false;
+
+    for (const platform of platforms) {
+      const playerBottom = player.y + player.height;
+
+      const horizontalOverlap =
+              player.x + player.width > platform.x &&
+              player.x < platform.x + platform.width;
+
+      const fallingOntoPlatform =
+              previousBottom <= platform.y &&
+              playerBottom >= platform.y &&
+              player.velocityY >= 0;
+
+      if (horizontalOverlap && fallingOntoPlatform) {
+        player.y = platform.y - player.height;
+        player.velocityY = 0;
+        player.onGround = true;
+      }
+    }
+
+    if (player.y > canvas.height + 100) {
+      loseLife();
+    }
+
+    if (!banana.collected && isColliding(player, banana)) {
+      banana.collected = true;
+      player.hasBanana = true;
+    }
+
+    if (player.hasBanana && isColliding(player, friend)) {
+      player.hasBanana = false;
+      friend.died = true;
+      gameState = "won";
+    }
+  }
+
+  function updateEnemies() {
+    if (gameState !== "playing") return;
+
+    for (const enemy of enemies) {
+      if (!enemy.alive) continue;
+
+      if (enemy.type === "normal") {
+        enemy.x += enemy.speed * enemy.direction;
+        if (enemy.x < 250 || enemy.x > 900) enemy.direction *= -1;
+      }
+
+      if (enemy.type === "thief") {
+        if (player.hasBanana) {
+          if (enemy.x < player.x) enemy.x += enemy.speed;
+          if (enemy.x > player.x) enemy.x -= enemy.speed;
+        } else {
+          enemy.x += enemy.speed * enemy.direction;
+          if (enemy.x < 650 || enemy.x > 900) enemy.direction *= -1;
+        }
+      }
+
+      if (isColliding(player, enemy)) {
+        const playerBottom = player.y + player.height;
+        const enemyTop = enemy.y;
+
+        const jumpedOnEnemy =
+                player.velocityY > 0 &&
+                playerBottom - enemyTop < 25;
+
+        if (jumpedOnEnemy) {
+          enemy.alive = false;
+          player.velocityY = -9;
+        } else {
+          loseLife();
+        }
+      }
+    }
+  }
+
+  function drawBackground() {
+    ctx.fillStyle = "#ffd54f";
+    ctx.beginPath();
+    ctx.arc(850, 90, 45, 0, Math.PI * 2);
+    ctx.fill();
+
+    drawCloud(120, 100);
+    drawCloud(500, 80);
+  }
+
+  function drawCloud(x, y) {
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    ctx.beginPath();
+    ctx.arc(x, y, 30, 0, Math.PI * 2);
+    ctx.arc(x + 35, y - 10, 35, 0, Math.PI * 2);
+    ctx.arc(x + 70, y, 30, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawPlatforms() {
+    for (const platform of platforms) {
+      ctx.fillStyle = "#4caf50";
+      ctx.fillRect(platform.x, platform.y, platform.width, 8);
+      ctx.fillStyle = "#7b4a24";
+      ctx.fillRect(platform.x, platform.y + 8, platform.width, platform.height - 8);
+    }
+  }
+
+  function drawPerson(person, shirtColor, hairColor) {
+    ctx.fillStyle = "#f2c28b";
+    ctx.beginPath();
+    ctx.arc(person.x + 18, person.y + 14, 14, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = hairColor;
+    ctx.fillRect(person.x + 6, person.y, 24, 8);
+
+    ctx.fillStyle = shirtColor;
+    ctx.fillRect(person.x + 7, person.y + 28, 22, 25);
+
+    ctx.fillStyle = "#333";
+    ctx.fillRect(person.x + 7, person.y + 50, 8, 15);
+    ctx.fillRect(person.x + 21, person.y + 50, 8, 15);
+
+    ctx.fillStyle = "black";
+    ctx.beginPath();
+    ctx.arc(person.x + 13, person.y + 13, 2, 0, Math.PI * 2);
+    ctx.arc(person.x + 23, person.y + 13, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawPlayer() {
+    drawPerson(player, "#1e88e5", "#5b3518");
+
+    if (player.hasBanana) {
+      drawSmallBanana(player.x + 5, player.y - 30);
+    }
+  }
+
+  function drawFriend() {
+    if (friend.died) {
+      ctx.save();
+      ctx.translate(friend.x + 18, friend.y + 35);
+      ctx.rotate(Math.PI / 2);
+      drawPerson({ x: -18, y: -35 }, "#e53935", "#222");
+      ctx.restore();
+    } else {
+      drawPerson(friend, "#e53935", "#222");
+    }
+
+    ctx.fillStyle = "white";
+    ctx.fillRect(friend.x - 70, friend.y - 55, 150, 35);
+
+    ctx.fillStyle = "black";
+    ctx.font = "16px Arial";
+
+    if (friend.died) {
+      ctx.fillText("Too much banana!", friend.x - 62, friend.y - 32);
+    } else {
+      ctx.fillText("I need a banana!", friend.x - 58, friend.y - 32);
+    }
+  }
+
+  function drawMaster() {
+    drawPerson(master, "#6a1b9a", "#000");
+
+    ctx.fillStyle = "white";
+    ctx.fillRect(master.x - 70, master.y - 45, 145, 30);
+
+    ctx.fillStyle = "black";
+    ctx.font = "14px Arial";
+    ctx.fillText("Bring me banana!", master.x - 62, master.y - 25);
+  }
+
+  function drawEnemies() {
+    for (const enemy of enemies) {
+      if (!enemy.alive) continue;
+
+      ctx.fillStyle = enemy.type === "thief" ? "#ff7043" : "#8e24aa";
+      ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+
+      ctx.fillStyle = "white";
+      ctx.beginPath();
+      ctx.arc(enemy.x + 10, enemy.y + 12, 5, 0, Math.PI * 2);
+      ctx.arc(enemy.x + 25, enemy.y + 12, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "black";
+      ctx.beginPath();
+      ctx.arc(enemy.x + 11, enemy.y + 12, 2, 0, Math.PI * 2);
+      ctx.arc(enemy.x + 26, enemy.y + 12, 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (enemy.type === "thief") {
+        ctx.fillStyle = "white";
+        ctx.font = "12px Arial";
+        ctx.fillText("THIEF", enemy.x - 2, enemy.y - 5);
+      }
+    }
+  }
+
+  function drawBanana() {
+    if (banana.collected) return;
+    drawSmallBanana(banana.x, banana.y);
+  }
+
+  function drawSmallBanana(x, y) {
+    ctx.strokeStyle = "gold";
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.arc(x + 20, y + 15, 20, 0.2, Math.PI - 0.2);
+    ctx.stroke();
+
+    ctx.fillStyle = "#5d4037";
+    ctx.fillRect(x + 35, y + 17, 5, 7);
+  }
+
+  function drawBananaSplat() {
+    if (gameState !== "won") return;
+
+    ctx.fillStyle = "rgba(255, 215, 0, 0.85)";
+    ctx.beginPath();
+    ctx.arc(500, 300, 90, 0, Math.PI * 2);
+    ctx.arc(420, 250, 45, 0, Math.PI * 2);
+    ctx.arc(585, 260, 55, 0, Math.PI * 2);
+    ctx.arc(455, 370, 50, 0, Math.PI * 2);
+    ctx.arc(570, 380, 40, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#5d4037";
+    ctx.font = "bold 48px Arial";
+    ctx.fillText("BANANA SPLAT!", 310, 310);
+  }
+
+  function drawHUD() {
+    ctx.fillStyle = "#222";
+    ctx.font = "bold 24px Arial";
+    ctx.fillText("Lives: " + lives, 820, 35);
+  }
+
+  function drawStartScreen() {
+    drawBackground();
+
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillRect(230, 140, 540, 300);
+
+    ctx.fillStyle = "#222";
+    ctx.font = "bold 48px Arial";
+    ctx.fillText("BANANA QUEST", 300, 210);
+
+    ctx.font = "24px Arial";
+    ctx.fillText("Help the hero find the banana.", 330, 260);
+    ctx.fillText("Avoid enemies and jump on purple ones.", 295, 300);
+    ctx.fillText("Lives left: " + lives, 430, 345);
+
+    ctx.font = "bold 26px Arial";
+    ctx.fillText("Press ENTER or Tap Start", 345, 395);
+  }
+
+  function drawGameOverScreen() {
+    drawBackground();
+
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.fillRect(250, 170, 500, 250);
+
+    ctx.fillStyle = "red";
+    ctx.font = "bold 52px Arial";
+    ctx.fillText("GAME OVER", 340, 245);
+
+    ctx.fillStyle = "#222";
+    ctx.font = "24px Arial";
+    ctx.fillText("You ran out of lives.", 390, 300);
+
+    ctx.font = "bold 26px Arial";
+    ctx.fillText("Press ENTER or Tap Start", 335, 360);
+  }
+
+  function drawText() {
+    ctx.fillStyle = "#222";
+    ctx.font = "bold 24px Arial";
+
+    if (!banana.collected) {
+      ctx.fillText("QUEST: Find the banana!", 20, 35);
+    } else if (player.hasBanana) {
+      ctx.fillText("QUEST: Take the banana to your friend!", 20, 35);
+    } else if (gameState === "won") {
+      ctx.fillStyle = "green";
+      ctx.font = "bold 42px Arial";
+      ctx.fillText("QUEST COMPLETE!", 320, 280);
+    }
+  }
+
+  function drawGame() {
+    drawBackground();
+    drawPlatforms();
+    drawMaster();
+    drawBanana();
+    drawFriend();
+    drawEnemies();
+    drawPlayer();
+    drawText();
+    drawHUD();
+    drawBananaSplat();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (gameState === "start") {
+      drawStartScreen();
+    } else if (gameState === "gameOver") {
+      drawGameOverScreen();
+    } else {
+      drawGame();
+    }
+  }
+
+  function gameLoop() {
+    updatePlayer();
+    updateEnemies();
+    draw();
+    requestAnimationFrame(gameLoop);
+  }
+
+  draw();
+  gameLoop();
+</script>
+
+</body>
+</html>
