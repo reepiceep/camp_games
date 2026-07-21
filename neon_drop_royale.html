@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Neon Drop Royale</title>
+<style>
+  :root {
+    --bg:#07111f; --panel:rgba(7,17,31,.96); --line:#38d9ff;
+    --purple:#8b5cf6; --text:#f8fbff; --muted:#9fb2c8;
+  }
+  * { box-sizing:border-box; }
+  html,body { width:100%;height:100%;margin:0;overflow:hidden;background:var(--bg);font-family:Arial,sans-serif;color:var(--text); }
+  canvas { width:100vw;height:100vh;display:block; }
+  .hidden { display:none!important; }
+  #menu {
+    position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:min(620px,calc(100vw - 24px));max-height:94vh;overflow:auto;
+    padding:24px;border-radius:20px;background:var(--panel);
+    border:2px solid rgba(56,217,255,.45);box-shadow:0 22px 90px rgba(0,0,0,.6);
+  }
+  h1 { margin:0;font-size:clamp(30px,7vw,54px);letter-spacing:2px; }
+  .subtitle { color:var(--muted);margin:4px 0 18px; }
+  label { display:block;margin:12px 0 5px;font-weight:800; }
+  input,select,textarea,button {
+    width:100%;padding:12px 13px;border:0;border-radius:11px;font-size:15px;
+  }
+  input,select,textarea { background:#102139;color:white;outline:1px solid rgba(255,255,255,.12); }
+  textarea { min-height:88px;resize:vertical;font-family:monospace;font-size:11px; }
+  button { background:#223958;color:white;font-weight:900;cursor:pointer;margin-top:10px; }
+  button:hover { filter:brightness(1.13); }
+  .primary { background:linear-gradient(135deg,#7c3aed,#00bfe8);font-size:17px; }
+  .danger { background:#7f1d1d; }
+  .grid { display:grid;grid-template-columns:1fr 1fr;gap:12px; }
+  .row { display:grid;grid-template-columns:1fr 1fr;gap:10px; }
+  .box { padding:12px;border-radius:12px;background:rgba(255,255,255,.05);margin-top:12px; }
+  .small { color:var(--muted);font-size:12px;line-height:1.4; }
+  #status { min-height:20px;color:#67e8f9;font-weight:800; }
+
+  #hud { position:fixed;inset:0;pointer-events:none; }
+  #hudCard {
+    position:absolute;left:14px;top:14px;padding:12px 14px;border-radius:14px;
+    background:rgba(4,10,18,.83);border:1px solid rgba(255,255,255,.13);line-height:1.45;
+  }
+  #healthWrap {
+    position:absolute;left:50%;bottom:22px;transform:translateX(-50%);
+    width:min(430px,70vw);height:28px;border-radius:999px;overflow:hidden;
+    background:#020617;border:2px solid white;
+  }
+  #healthBar { height:100%;width:100%;background:linear-gradient(90deg,#ef4444,#22c55e); }
+  #healthText { position:absolute;inset:0;display:grid;place-items:center;font-weight:900;text-shadow:0 1px 3px #000; }
+  #help {
+    position:absolute;right:14px;bottom:14px;padding:8px 11px;border-radius:10px;
+    background:rgba(0,0,0,.55);color:#dbeafe;
+  }
+  #message {
+    position:fixed;left:50%;top:17%;transform:translateX(-50%);
+    font-size:clamp(28px,7vw,68px);font-weight:1000;letter-spacing:3px;
+    text-align:center;text-shadow:0 5px 24px #000;pointer-events:none;
+  }
+  #leaveBtn {
+    position:absolute;right:14px;top:14px;width:auto;padding:9px 13px;pointer-events:auto;background:#7f1d1d;
+  }
+
+  #mobile { display:none;position:fixed;inset:0;pointer-events:none; }
+  #stickBase {
+    pointer-events:auto;position:absolute;left:24px;bottom:30px;width:122px;height:122px;
+    border-radius:50%;background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.25);
+  }
+  #stick {
+    position:absolute;left:35px;top:35px;width:52px;height:52px;border-radius:50%;background:rgba(56,217,255,.78);
+  }
+  #fire,#ability {
+    pointer-events:auto;position:absolute;right:24px;bottom:34px;width:88px;height:88px;
+    border-radius:50%;background:#dc2626;margin:0;
+  }
+  #ability { right:120px;bottom:118px;width:72px;height:72px;background:#7c3aed;font-size:12px; }
+  @media(max-width:700px),(pointer:coarse){
+    .grid,.row { grid-template-columns:1fr; }
+    #help { display:none; }
+    #mobile { display:block; }
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="hudCard">
+    <div><b id="modeText">MODE</b></div>
+    <div>Role: <span id="roleText"></span></div>
+    <div>Kills: <span id="killsText">0</span></div>
+    <div id="scoreText"></div>
+  </div>
+  <button id="leaveBtn">Leave Game</button>
+  <div id="healthWrap">
+    <div id="healthBar"></div>
+    <div id="healthText">100 / 100</div>
+  </div>
+  <div id="help">WASD move • Mouse aim • Click shoot • E/Space ability</div>
+</div>
+
+<div id="message"></div>
+
+<div id="menu">
+  <h1>NEON DROP ROYALE</h1>
+  <div class="subtitle">Original top-down arena battle made with HTML and JavaScript</div>
+
+  <div class="grid">
+    <div>
+      <label>Player name</label>
+      <input id="name" maxlength="16" value="Player">
+    </div>
+    <div>
+      <label>Free role</label>
+      <select id="role">
+        <option value="assault">Assault — triple-shot ability</option>
+        <option value="scout">Scout — dash ability</option>
+        <option value="tank">Tank — extra health</option>
+        <option value="medic">Medic — healing ability</option>
+      </select>
+    </div>
+  </div>
+
+  <label>Game mode</label>
+  <select id="mode">
+    <option value="br">Battle Royale</option>
+    <option value="tdm">Team Deathmatch</option>
+    <option value="botrush">Bot Rush</option>
+  </select>
+
+  <button id="solo" class="primary">Play Solo With AI Bots</button>
+
+  <div class="box">
+    <b>Online two-player invite</b>
+    <div class="small">No server installation is needed. The host and guest exchange two connection codes. Online play depends on WebRTC being allowed by both browsers and networks.</div>
+    <div class="row">
+      <button id="host">1. Host Online Game</button>
+      <button id="join">Join With Host Code</button>
+    </div>
+
+    <div id="hostArea" class="hidden">
+      <label>Send this host code to your friend</label>
+      <textarea id="offerOut" readonly></textarea>
+      <button id="copyOffer">Copy Host Code</button>
+      <label>Paste your friend's answer code</label>
+      <textarea id="answerIn" placeholder="Paste answer code here"></textarea>
+      <button id="finishHost" class="primary">2. Finish Connection</button>
+    </div>
+
+    <div id="joinArea" class="hidden">
+      <label>Paste the host code</label>
+      <textarea id="offerIn" placeholder="Paste host code here"></textarea>
+      <button id="makeAnswer">Create Answer Code</button>
+      <label>Send this answer code back to the host</label>
+      <textarea id="answerOut" readonly></textarea>
+      <button id="copyAnswer">Copy Answer Code</button>
+    </div>
+  </div>
+
+  <div id="status"></div>
+  <div class="small">All roles are free. This game uses original shapes and effects rather than copied game artwork.</div>
+</div>
+
+<div id="mobile">
+  <div id="stickBase"><div id="stick"></div></div>
+  <button id="fire">FIRE</button>
+  <button id="ability">ABILITY</button>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const menu = document.getElementById("menu");
+const hud = document.getElementById("hud");
+const statusEl = document.getElementById("status");
+const messageEl = document.getElementById("message");
+
+const WORLD = { width: 2400, height: 1600 };
+const ROLE = {
+  assault:{ maxHp:100,speed:260,damage:24,fireRate:.22,bulletSpeed:800,cooldown:6 },
+  scout:{ maxHp:80,speed:325,damage:19,fireRate:.16,bulletSpeed:900,cooldown:5 },
+  tank:{ maxHp:160,speed:205,damage:30,fireRate:.35,bulletSpeed:700,cooldown:8 },
+  medic:{ maxHp:105,speed:245,damage:18,fireRate:.23,bulletSpeed:770,cooldown:7 }
+};
+
+let game = null;
+let running = false;
+let lastTime = performance.now();
+let accumulator = 0;
+let camera = {x:0,y:0};
+let keys = {};
+let mouse = {x:0,y:0,down:false};
+let touchMove = {x:0,y:0};
+let touchShoot = false;
+let touchAbility = false;
+
+let networkMode = "none"; // none, host, guest
+let pc = null;
+let channel = null;
+let guestInput = {};
+let pendingHello = null;
+
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function distance(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+function rand(a,b){ return a+Math.random()*(b-a); }
+function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+
+function resize(){
+  const dpr = Math.min(devicePixelRatio || 1,2);
+  canvas.width = innerWidth*dpr;
+  canvas.height = innerHeight*dpr;
+  canvas.style.width = innerWidth+"px";
+  canvas.style.height = innerHeight+"px";
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+addEventListener("resize",resize);
+resize();
+
+function makeObstacles(){
+  const arr=[];
+  for(let i=0;i<28;i++){
+    arr.push({x:rand(150,WORLD.width-420),y:rand(150,WORLD.height-330),w:rand(90,230),h:rand(70,180)});
+  }
+  return arr;
+}
+function spawnPoint(){
+  return {x:rand(120,WORLD.width-120),y:rand(120,WORLD.height-120)};
+}
+function makeEntity(id,name,role,team,isBot=false){
+  const p=spawnPoint(), s=ROLE[role];
+  return {
+    id,name,role,team,isBot,x:p.x,y:p.y,angle:0,
+    hp:s.maxHp,maxHp:s.maxHp,alive:true,respawn:0,
+    kills:0,deaths:0,lastShot:-99,lastAbility:-99,input:{}
+  };
+}
+function teamForHuman(index,mode){
+  if(mode==="tdm") return index%2===0?"red":"blue";
+  if(mode==="botrush") return "heroes";
+  return "solo";
+}
+function createBots(mode,count){
+  const bots=[];
+  const names=["Nova","Pixel","Rex","Bolt","Moss","Echo","Vex","Luna","Dash","Iris","Knox","Zed"];
+  for(let i=0;i<count;i++){
+    const team=mode==="tdm"?(i%2===0?"red":"blue"):(mode==="botrush"?"bots":"bot");
+    bots.push(makeEntity("bot"+i,names[i%names.length]+" Bot",pick(Object.keys(ROLE)),team,true));
+  }
+  return bots;
+}
+function newGame(mode,localName,localRole){
+  game={
+    mode,time:0,roundOver:0,wave:1,
+    zone:{x:WORLD.width/2,y:WORLD.height/2,radius:1100},
+    teamScores:{red:0,blue:0},
+    obstacles:makeObstacles(),bullets:[],
+    players:[makeEntity("host",localName,localRole,teamForHuman(0,mode),false)],
+    bots:createBots(mode,mode==="botrush"?12:10),
+    message:"",messageTime:0
+  };
+}
+function addGuest(name,role){
+  if(!game || game.players.some(p=>p.id==="guest")) return;
+  game.players.push(makeEntity("guest",name||"Guest",role||"assault",teamForHuman(1,game.mode),false));
+}
+function getEntity(id){
+  if(!game) return null;
+  return [...game.players,...game.bots].find(e=>e.id===id);
+}
+function collidesObstacle(x,y,r=20){
+  return game.obstacles.some(o=>x+r>o.x&&x-r<o.x+o.w&&y+r>o.y&&y-r<o.y+o.h);
+}
+function moveEntity(e,dx,dy,dt){
+  const s=ROLE[e.role], len=Math.hypot(dx,dy);
+  if(len>1){dx/=len;dy/=len;}
+  let nx=clamp(e.x+dx*s.speed*dt,24,WORLD.width-24);
+  let ny=clamp(e.y+dy*s.speed*dt,24,WORLD.height-24);
+  if(!collidesObstacle(nx,e.y)) e.x=nx;
+  if(!collidesObstacle(e.x,ny)) e.y=ny;
+}
+function canDamage(a,b){
+  if(game.mode==="tdm"||game.mode==="botrush") return a.team!==b.team;
+  return true;
+}
+function shoot(e,angleOverride){
+  if(!e.alive) return;
+  const s=ROLE[e.role];
+  if(game.time-e.lastShot<s.fireRate) return;
+  e.lastShot=game.time;
+  const a=angleOverride===undefined?e.angle:angleOverride;
+  game.bullets.push({
+    owner:e.id,team:e.team,x:e.x+Math.cos(a)*28,y:e.y+Math.sin(a)*28,
+    vx:Math.cos(a)*s.bulletSpeed,vy:Math.sin(a)*s.bulletSpeed,
+    damage:s.damage,life:1.35
+  });
+}
+function ability(e){
+  if(!e.alive) return;
+  const s=ROLE[e.role];
+  if(game.time-e.lastAbility<s.cooldown) return;
+  e.lastAbility=game.time;
+  if(e.role==="assault"){
+    shoot(e,e.angle-.13); e.lastShot-=s.fireRate; shoot(e,e.angle); e.lastShot-=s.fireRate; shoot(e,e.angle+.13);
+  }else if(e.role==="scout"){
+    const nx=clamp(e.x+Math.cos(e.angle)*165,24,WORLD.width-24);
+    const ny=clamp(e.y+Math.sin(e.angle)*165,24,WORLD.height-24);
+    if(!collidesObstacle(nx,ny)){e.x=nx;e.y=ny;}
+  }else if(e.role==="tank"){
+    e.hp=Math.min(e.maxHp,e.hp+42);
+  }else{
+    e.hp=Math.min(e.maxHp,e.hp+45);
+    for(const p of game.players){
+      if(p.id!==e.id&&p.alive&&p.team===e.team&&distance(p,e)<190) p.hp=Math.min(p.maxHp,p.hp+28);
+    }
+  }
+}
+function kill(victim,killerId){
+  victim.alive=false;victim.hp=0;victim.deaths++;
+  victim.respawn=game.time+(game.mode==="br"?9999:2.5);
+  const k=getEntity(killerId);
+  if(k){
+    k.kills++;
+    if(game.mode==="tdm"&&(k.team==="red"||k.team==="blue")) game.teamScores[k.team]++;
+  }
+}
+function respawn(e){
+  const p=spawnPoint();e.x=p.x;e.y=p.y;e.hp=e.maxHp;e.alive=true;e.respawn=0;
+}
+function updatePlayer(e,input,dt){
+  if(!e.alive){
+    if(game.mode!=="br"&&game.time>=e.respawn) respawn(e);
+    return;
+  }
+  const dx=(input.right?1:0)-(input.left?1:0);
+  const dy=(input.down?1:0)-(input.up?1:0);
+  moveEntity(e,dx,dy,dt);
+  if(Number.isFinite(input.angle)) e.angle=input.angle;
+  if(input.shoot) shoot(e);
+  if(input.ability){ ability(e); input.ability=false; }
+}
+function updateBots(dt){
+  const all=[...game.players,...game.bots];
+  for(const b of game.bots){
+    if(!b.alive){
+      if(game.mode!=="br"&&game.time>=b.respawn) respawn(b);
+      continue;
+    }
+    let targets=all.filter(e=>e.id!==b.id&&e.alive&&canDamage(b,e));
+    if(game.mode==="botrush") targets=game.players.filter(e=>e.alive);
+    targets.sort((a,c)=>distance(b,a)-distance(b,c));
+    const t=targets[0]; if(!t) continue;
+    const dx=t.x-b.x,dy=t.y-b.y,d=Math.hypot(dx,dy)||1;
+    b.angle=Math.atan2(dy,dx);
+    let mx=0,my=0;
+    if(d>310){mx=dx/d;my=dy/d;}
+    else if(d<150){mx=-dx/d;my=-dy/d;}
+    else{const w=Math.sin(game.time*2+b.id.length);mx=-dy/d*w;my=dx/d*w;}
+    moveEntity(b,mx,my,dt);
+    if(d<760&&Math.random()<.78) shoot(b,b.angle+rand(-.08,.08));
+    if(b.hp<b.maxHp*.35&&Math.random()<.012) ability(b);
+  }
+}
+function updateBullets(dt){
+  const entities=[...game.players,...game.bots];
+  for(let i=game.bullets.length-1;i>=0;i--){
+    const b=game.bullets[i];
+    b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
+    let remove=b.life<=0||b.x<0||b.y<0||b.x>WORLD.width||b.y>WORLD.height||collidesObstacle(b.x,b.y,4);
+    if(!remove){
+      for(const e of entities){
+        if(!e.alive||e.id===b.owner||!canDamage({team:b.team},e)) continue;
+        if(Math.hypot(e.x-b.x,e.y-b.y)<23){
+          e.hp-=b.damage;if(e.hp<=0)kill(e,b.owner);remove=true;break;
+        }
+      }
+    }
+    if(remove)game.bullets.splice(i,1);
+  }
+}
+function updateMode(dt){
+  if(game.mode==="br"){
+    if(game.time>12)game.zone.radius=Math.max(180,1100-(game.time-12)*8);
+    for(const e of [...game.players,...game.bots]){
+      if(e.alive&&distance(e,game.zone)>game.zone.radius){
+        e.hp-=11*dt;if(e.hp<=0)kill(e,"storm");
+      }
+    }
+    const alive=[...game.players,...game.bots].filter(e=>e.alive);
+    if(alive.length<=1&&!game.roundOver){
+      showMessage(alive.length?alive[0].name+" WINS!":"NO WINNER",5);
+      game.roundOver=game.time+5;
+    }
+  }else if(game.mode==="tdm"){
+    if((game.teamScores.red>=25||game.teamScores.blue>=25)&&!game.roundOver){
+      showMessage((game.teamScores.red>=25?"RED":"BLUE")+" TEAM WINS!",5);
+      game.roundOver=game.time+5;
+    }
+  }else if(game.mode==="botrush"){
+    if(game.bots.every(b=>!b.alive)){
+      game.wave++;
+      showMessage("WAVE "+game.wave,2.5);
+      game.bots=createBots(game.mode,Math.min(6+game.wave*2,22));
+      for(const p of game.players){if(!p.alive)respawn(p);p.hp=p.maxHp;}
+    }
+  }
+  if(game.roundOver&&game.time>=game.roundOver) resetRound();
+}
+function resetRound(){
+  const oldPlayers=game.players.map(p=>({id:p.id,name:p.name,role:p.role,team:p.team}));
+  game.time=0;game.roundOver=0;game.wave=1;game.bullets=[];game.teamScores={red:0,blue:0};
+  game.zone={x:WORLD.width/2,y:WORLD.height/2,radius:1100};game.obstacles=makeObstacles();
+  game.players=oldPlayers.map(p=>makeEntity(p.id,p.name,p.role,p.team,false));
+  game.bots=createBots(game.mode,game.mode==="botrush"?12:10);
+}
+function showMessage(text,duration){
+  game.message=text;game.messageTime=game.time+duration;
+}
+function localInputFor(id){
+  const me=getEntity(id);
+  if(!me)return {};
+  const worldMouse={x:mouse.x+camera.x,y:mouse.y+camera.y};
+  let angle=Math.atan2(worldMouse.y-me.y,worldMouse.x-me.x);
+  if((Math.abs(touchMove.x)+Math.abs(touchMove.y))>.25&&!mouse.down)angle=Math.atan2(touchMove.y,touchMove.x);
+  const input={
+    up:keys.w||keys.arrowup||touchMove.y<-.25,
+    down:keys.s||keys.arrowdown||touchMove.y>.25,
+    left:keys.a||keys.arrowleft||touchMove.x<-.25,
+    right:keys.d||keys.arrowright||touchMove.x>.25,
+    shoot:mouse.down||touchShoot,
+    ability:keys.e||keys[" "]||touchAbility,
+    angle
+  };
+  keys.e=false;keys[" "]=false;touchAbility=false;
+  return input;
+}
+function update(dt){
+  if(!game||networkMode==="guest") return;
+  game.time+=dt;
+  updatePlayer(getEntity("host"),localInputFor("host"),dt);
+  const guest=getEntity("guest");
+  if(guest)updatePlayer(guest,guestInput,dt);
+  updateBots(dt);
+  updateBullets(dt);
+  updateMode(dt);
+
+  if(networkMode==="host"&&channel&&channel.readyState==="open"&&Math.floor(game.time*15)!==Math.floor((game.time-dt)*15)){
+    channel.send(JSON.stringify({type:"state",game}));
+  }
+}
+function serializeDescription(desc){
+  return btoa(unescape(encodeURIComponent(JSON.stringify(desc))));
+}
+function parseDescription(text){
+  return JSON.parse(decodeURIComponent(escape(atob(text.trim()))));
+}
+function waitIceComplete(peer){
+  return new Promise(resolve=>{
+    if(peer.iceGatheringState==="complete")return resolve();
+    const f=()=>{if(peer.iceGatheringState==="complete"){peer.removeEventListener("icegatheringstatechange",f);resolve();}};
+    peer.addEventListener("icegatheringstatechange",f);
+    setTimeout(resolve,5000);
+  });
+}
+function makePeer(){
+  return new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]});
+}
+function setupChannel(ch){
+  channel=ch;
+  channel.onopen=()=>{
+    statusEl.textContent="Online connection ready!";
+    if(networkMode==="guest"){
+      channel.send(JSON.stringify({
+        type:"hello",
+        name:document.getElementById("name").value.trim()||"Guest",
+        role:document.getElementById("role").value
+      }));
+      startGuestGame();
+    }
+  };
+  channel.onmessage=e=>{
+    let msg;try{msg=JSON.parse(e.data);}catch{return;}
+    if(networkMode==="host"){
+      if(msg.type==="hello"){pendingHello=msg;addGuest(msg.name,msg.role);}
+      if(msg.type==="input")guestInput=msg.input||{};
+    }else if(networkMode==="guest"){
+      if(msg.type==="state"){game=msg.game;running=true;updateHUD();}
+    }
+  };
+  channel.onclose=()=>statusEl.textContent="Online player disconnected.";
+}
+async function hostOnline(){
+  try{
+    networkMode="host";
+    newGame(document.getElementById("mode").value,
+            document.getElementById("name").value.trim()||"Host",
+            document.getElementById("role").value);
+    pc=makePeer();
+    setupChannel(pc.createDataChannel("game"));
+    const offer=await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await waitIceComplete(pc);
+    document.getElementById("offerOut").value=serializeDescription(pc.localDescription);
+    document.getElementById("hostArea").classList.remove("hidden");
+    document.getElementById("joinArea").classList.add("hidden");
+    statusEl.textContent="Send the host code to your friend.";
+    startHostGame();
+  }catch(err){statusEl.textContent="Host error: "+err.message;}
+}
+async function finishHost(){
+  try{
+    const answer=parseDescription(document.getElementById("answerIn").value);
+    await pc.setRemoteDescription(answer);
+    statusEl.textContent="Answer accepted. Waiting for your friend to connect...";
+  }catch(err){statusEl.textContent="Answer error: "+err.message;}
+}
+async function makeAnswer(){
+  try{
+    networkMode="guest";
+    pc=makePeer();
+    pc.ondatachannel=e=>setupChannel(e.channel);
+    const offer=parseDescription(document.getElementById("offerIn").value);
+    await pc.setRemoteDescription(offer);
+    const answer=await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await waitIceComplete(pc);
+    document.getElementById("answerOut").value=serializeDescription(pc.localDescription);
+    statusEl.textContent="Send the answer code back to the host.";
+  }catch(err){statusEl.textContent="Join error: "+err.message;}
+}
+function startHostGame(){
+  running=true;menu.classList.add("hidden");hud.classList.remove("hidden");
+  document.getElementById("roleText").textContent=getEntity("host").role;
+  updateHUD();
+}
+function startGuestGame(){
+  running=true;menu.classList.add("hidden");hud.classList.remove("hidden");
+  document.getElementById("roleText").textContent=document.getElementById("role").value;
+}
+function startSolo(){
+  networkMode="none";
+  newGame(document.getElementById("mode").value,
+          document.getElementById("name").value.trim()||"Player",
+          document.getElementById("role").value);
+  startHostGame();
+}
+function leave(){
+  if(pc)pc.close();
+  pc=null;channel=null;networkMode="none";running=false;game=null;
+  hud.classList.add("hidden");menu.classList.remove("hidden");messageEl.textContent="";
+  location.hash="";
+}
+function updateHUD(){
+  if(!game)return;
+  const myId=networkMode==="guest"?"guest":"host";
+  const me=getEntity(myId);
+  document.getElementById("modeText").textContent={br:"BATTLE ROYALE",tdm:"TEAM DEATHMATCH",botrush:"BOT RUSH"}[game.mode];
+  if(me){
+    document.getElementById("roleText").textContent=me.role;
+    document.getElementById("killsText").textContent=me.kills;
+    document.getElementById("healthBar").style.width=Math.max(0,me.hp/me.maxHp*100)+"%";
+    document.getElementById("healthText").textContent=me.alive?Math.ceil(me.hp)+" / "+me.maxHp:"ELIMINATED";
+  }
+  if(game.mode==="tdm")document.getElementById("scoreText").textContent=`Red ${game.teamScores.red} — ${game.teamScores.blue} Blue`;
+  else if(game.mode==="botrush")document.getElementById("scoreText").textContent="Wave "+game.wave;
+  else document.getElementById("scoreText").textContent=[...game.players,...game.bots].filter(e=>e.alive).length+" alive";
+  messageEl.textContent=game.message&&game.time<game.messageTime?game.message:"";
+}
+function roleColor(r){return {assault:"#38d9ff",scout:"#facc15",tank:"#fb7185",medic:"#4ade80"}[r]||"#fff";}
+function teamColor(t){return t==="red"?"#ff4d6d":t==="blue"?"#4da3ff":t==="heroes"?"#4ade80":t==="bots"?"#f97316":"#fff";}
+function drawGrid(){
+  const size=80;ctx.strokeStyle="rgba(255,255,255,.055)";ctx.lineWidth=1;
+  const sx=Math.floor(camera.x/size)*size,sy=Math.floor(camera.y/size)*size;
+  for(let x=sx;x<camera.x+innerWidth+size;x+=size){ctx.beginPath();ctx.moveTo(x-camera.x,0);ctx.lineTo(x-camera.x,innerHeight);ctx.stroke();}
+  for(let y=sy;y<camera.y+innerHeight+size;y+=size){ctx.beginPath();ctx.moveTo(0,y-camera.y);ctx.lineTo(innerWidth,y-camera.y);ctx.stroke();}
+}
+function drawObstacle(o){
+  const x=o.x-camera.x,y=o.y-camera.y;
+  ctx.fillStyle="#142b42";ctx.strokeStyle="#2f5d83";ctx.lineWidth=4;
+  ctx.fillRect(x,y,o.w,o.h);ctx.strokeRect(x,y,o.w,o.h);
+  ctx.fillStyle="rgba(255,255,255,.055)";ctx.fillRect(x+9,y+9,o.w-18,12);
+}
+function drawEntity(e){
+  if(!e.alive)return;
+  const x=e.x-camera.x,y=e.y-camera.y;
+  ctx.save();ctx.translate(x,y);ctx.rotate(e.angle);
+  ctx.fillStyle=roleColor(e.role);ctx.strokeStyle=teamColor(e.team);ctx.lineWidth=4;
+  ctx.beginPath();ctx.arc(0,0,20,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle="#dbeafe";ctx.fillRect(4,-5,31,10);
+  ctx.fillStyle="#111827";ctx.fillRect(25,-3,12,6);ctx.restore();
+  ctx.textAlign="center";ctx.font="bold 13px Arial";ctx.fillStyle="white";ctx.fillText(e.name,x,y-31);
+  ctx.fillStyle="rgba(0,0,0,.75)";ctx.fillRect(x-24,y+27,48,6);
+  ctx.fillStyle=e.hp/e.maxHp>.4?"#22c55e":"#ef4444";ctx.fillRect(x-24,y+27,48*Math.max(0,e.hp/e.maxHp),6);
+}
+function draw(){
+  requestAnimationFrame(draw);
+  ctx.clearRect(0,0,innerWidth,innerHeight);
+  const bg=ctx.createLinearGradient(0,0,innerWidth,innerHeight);
+  bg.addColorStop(0,"#071827");bg.addColorStop(1,"#0b1022");ctx.fillStyle=bg;ctx.fillRect(0,0,innerWidth,innerHeight);
+  if(!game){drawGrid();return;}
+  const myId=networkMode==="guest"?"guest":"host",me=getEntity(myId);
+  if(me){
+    camera.x+=((me.x-innerWidth/2)-camera.x)*.14;
+    camera.y+=((me.y-innerHeight/2)-camera.y)*.14;
+    camera.x=clamp(camera.x,0,Math.max(0,WORLD.width-innerWidth));
+    camera.y=clamp(camera.y,0,Math.max(0,WORLD.height-innerHeight));
+  }
+  drawGrid();
+  if(game.mode==="br"){
+    ctx.save();ctx.fillStyle="rgba(132,35,190,.17)";ctx.fillRect(0,0,innerWidth,innerHeight);
+    ctx.globalCompositeOperation="destination-out";ctx.beginPath();ctx.arc(game.zone.x-camera.x,game.zone.y-camera.y,game.zone.radius,0,Math.PI*2);ctx.fill();ctx.restore();
+    ctx.strokeStyle="rgba(196,118,255,.9)";ctx.lineWidth=7;ctx.beginPath();ctx.arc(game.zone.x-camera.x,game.zone.y-camera.y,game.zone.radius,0,Math.PI*2);ctx.stroke();
+  }
+  ctx.strokeStyle="#38d9ff";ctx.lineWidth=5;ctx.strokeRect(-camera.x,-camera.y,WORLD.width,WORLD.height);
+  for(const o of game.obstacles)drawObstacle(o);
+  ctx.fillStyle="#fef08a";
+  for(const b of game.bullets){ctx.beginPath();ctx.arc(b.x-camera.x,b.y-camera.y,4,0,Math.PI*2);ctx.fill();}
+  const ents=[...game.bots,...game.players].sort((a,b)=>a.y-b.y);
+  for(const e of ents)drawEntity(e);
+}
+function frame(now){
+  const dt=Math.min(.05,(now-lastTime)/1000);lastTime=now;
+  if(running){
+    if(networkMode==="guest"){
+      const input=localInputFor("guest");
+      if(channel&&channel.readyState==="open")channel.send(JSON.stringify({type:"input",input}));
+    }else{
+      accumulator+=dt;
+      while(accumulator>=1/60){update(1/60);accumulator-=1/60;}
+    }
+    updateHUD();
+  }
+  requestAnimationFrame(frame);
+}
+
+document.getElementById("solo").onclick=startSolo;
+document.getElementById("host").onclick=hostOnline;
+document.getElementById("join").onclick=()=>{
+  document.getElementById("joinArea").classList.remove("hidden");
+  document.getElementById("hostArea").classList.add("hidden");
+  statusEl.textContent="Paste the host code.";
+};
+document.getElementById("finishHost").onclick=finishHost;
+document.getElementById("makeAnswer").onclick=makeAnswer;
+document.getElementById("leaveBtn").onclick=leave;
+document.getElementById("copyOffer").onclick=()=>navigator.clipboard.writeText(document.getElementById("offerOut").value);
+document.getElementById("copyAnswer").onclick=()=>navigator.clipboard.writeText(document.getElementById("answerOut").value);
+
+addEventListener("keydown",e=>{keys[e.key.toLowerCase()]=true;if([" ","arrowup","arrowdown","arrowleft","arrowright"].includes(e.key.toLowerCase()))e.preventDefault();});
+addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+canvas.addEventListener("mousemove",e=>{mouse.x=e.clientX;mouse.y=e.clientY;});
+canvas.addEventListener("mousedown",()=>mouse.down=true);
+addEventListener("mouseup",()=>mouse.down=false);
+canvas.addEventListener("contextmenu",e=>e.preventDefault());
+
+const stickBase=document.getElementById("stickBase"),stick=document.getElementById("stick");
+let stickId=null;
+function moveStick(t){
+  const r=stickBase.getBoundingClientRect();let dx=t.clientX-(r.left+r.width/2),dy=t.clientY-(r.top+r.height/2);
+  const len=Math.hypot(dx,dy)||1,max=36;if(len>max){dx=dx/len*max;dy=dy/len*max;}
+  touchMove={x:dx/max,y:dy/max};stick.style.transform=`translate(${dx}px,${dy}px)`;
+}
+stickBase.addEventListener("touchstart",e=>{e.preventDefault();stickId=e.changedTouches[0].identifier;moveStick(e.changedTouches[0]);},{passive:false});
+stickBase.addEventListener("touchmove",e=>{e.preventDefault();for(const t of e.changedTouches)if(t.identifier===stickId)moveStick(t);},{passive:false});
+stickBase.addEventListener("touchend",e=>{e.preventDefault();touchMove={x:0,y:0};stick.style.transform="translate(0,0)";stickId=null;},{passive:false});
+document.getElementById("fire").addEventListener("touchstart",e=>{e.preventDefault();touchShoot=true;},{passive:false});
+document.getElementById("fire").addEventListener("touchend",e=>{e.preventDefault();touchShoot=false;},{passive:false});
+document.getElementById("ability").addEventListener("touchstart",e=>{e.preventDefault();touchAbility=true;},{passive:false});
+
+draw();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
