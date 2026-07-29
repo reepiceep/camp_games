@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Token Strike 3D</title>
   <style>
+    :root { --crosshair-color: #ffffff; }
     * { box-sizing: border-box; }
     html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #05070a; font-family: Arial, Helvetica, sans-serif; color: white; }
     canvas { display: block; }
@@ -35,11 +36,20 @@
       position: absolute; left: 50%; top: 22%; transform: translate(-50%,-50%);
       font-size: 30px; font-weight: 900; text-align: center; color: #f8fafc;
     }
+    #bossWrap {
+      position: absolute; top: 88px; left: 50%; width: min(560px, 62vw);
+      transform: translateX(-50%); display: none; padding: 9px 12px;
+      background: rgba(5,10,18,.82); border: 1px solid rgba(255,255,255,.22); border-radius: 10px;
+    }
+    #bossHeader { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:6px; font-weight:900; }
+    #bossText { color:#fde68a; font-size:13px; white-space:nowrap; }
+    #bossBarOuter { height:14px; border-radius:999px; overflow:hidden; background:#310d16; border:1px solid rgba(255,255,255,.2); }
+    #bossBar { width:100%; height:100%; background:linear-gradient(90deg,#dc2626,#f97316,#facc15); transition:width .12s; }
     #crosshair {
       position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%,-50%);
     }
     #crosshair:before, #crosshair:after {
-      content: ""; position: absolute; background: white; box-shadow: 0 0 4px black;
+      content: ""; position: absolute; background: var(--crosshair-color); box-shadow: 0 0 4px black;
     }
     #crosshair:before { width: 2px; height: 22px; left: 10px; top: 0; }
     #crosshair:after { width: 22px; height: 2px; left: 0; top: 10px; }
@@ -50,11 +60,11 @@
     #hitMarker:before, #hitMarker:after { content:""; position:absolute; background:#ffdf5d; }
     #hitMarker:before { width:2px; height:24px; left:11px; }
     #hitMarker:after { height:2px; width:24px; top:11px; }
-    #instructions, #shop, #gameOver {
+    #instructions, #shop, #gameOver, #settings {
       position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
       background: radial-gradient(circle at center, rgba(17,24,39,.78), rgba(0,0,0,.94));
     }
-    #instructionsCard, #gameOverCard {
+    #instructionsCard, #gameOverCard, #settingsCard {
       width: min(680px, 92vw); padding: 28px; border-radius: 18px;
       background: rgba(10,18,30,.95); border: 1px solid rgba(255,255,255,.2);
       box-shadow: 0 22px 80px rgba(0,0,0,.65); text-align: center;
@@ -67,6 +77,8 @@
       background: #2563eb; color: white; font-size: 16px;
     }
     button:hover { filter: brightness(1.15); }
+    .buttonRow { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
+    .secondaryButton { background:#374151; }
     #shop { display: none; align-items: stretch; justify-content: stretch; padding: 4vh 4vw; }
     #shopCard {
       width: 100%; height: 92vh; padding: 18px; border-radius: 18px; overflow: hidden;
@@ -76,6 +88,18 @@
     #shopHeader { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-bottom:12px; }
     #shopHeader h2 { margin:0; font-size:34px; }
     #shopTokens { font-size:22px; font-weight:900; color:#facc15; }
+    #shopToolbar {
+      display:grid; grid-template-columns:minmax(180px,1.4fr) repeat(2,minmax(140px,.7fr)); gap:9px;
+      padding:0 0 10px;
+    }
+    #shopToolbar input, #shopToolbar select, .settingRow input, .settingRow select {
+      width:100%; border:1px solid rgba(255,255,255,.18); border-radius:9px;
+      padding:10px; background:#111827; color:#fff; font:inherit;
+    }
+    #equippedComparison {
+      margin-bottom:10px; padding:8px 11px; border-radius:9px;
+      background:rgba(37,99,235,.13); color:#bfdbfe; font-size:13px; font-weight:800;
+    }
     #shopList {
       overflow-y:auto; display:grid; grid-template-columns: repeat(auto-fill,minmax(270px,1fr)); gap:10px; padding-right:6px;
     }
@@ -87,10 +111,20 @@
     .gun.equipped { box-shadow:0 0 0 2px #60a5fa inset; }
     .gunName { font-size:18px; font-weight:900; }
     .gunStats { color:#cbd5e1; font-size:13px; line-height:1.45; }
+    .gunCompare { color:#93c5fd; font-size:12px; line-height:1.4; }
     .gunPrice { color:#facc15; font-weight:900; }
     .gun button { margin-top:auto; width:100%; padding:9px; }
     #shopClose { background:#374151; }
     #gameOver { display:none; }
+    #settings { display:none; }
+    #settingsCard { width:min(560px,92vw); text-align:left; }
+    #settingsCard h2 { margin:0 0 6px; font-size:34px; text-align:center; }
+    #settingsGrid { display:grid; gap:13px; margin:20px 0; }
+    .settingRow { display:grid; grid-template-columns:1fr minmax(170px,1fr); align-items:center; gap:18px; }
+    .settingRow label { font-weight:800; }
+    .settingRow output { color:#93c5fd; font-size:13px; margin-left:8px; }
+    .checkSetting { display:flex; align-items:center; justify-content:flex-end; gap:10px; }
+    .checkSetting input { width:20px; height:20px; }
     #damageFlash {
       position: fixed; inset:0; z-index:4; pointer-events:none; opacity:0;
       background: radial-gradient(circle, transparent 45%, rgba(255,0,0,.7)); transition:opacity .13s;
@@ -101,6 +135,18 @@
     }
     #minimap canvas { width:100%; height:100%; }
     .small { font-size:13px; color:#cbd5e1; }
+    @media (max-width: 700px) {
+      #shop { padding:2vh 2vw; }
+      #shopCard { height:96vh; }
+      #shopHeader { align-items:flex-start; flex-wrap:wrap; }
+      #shopHeader h2 { font-size:24px; }
+      #shopToolbar { grid-template-columns:1fr; }
+      #bossWrap { top:112px; width:88vw; }
+      #healthWrap { width:min(280px,60vw); }
+      #minimap { width:128px; height:128px; }
+      .settingRow { grid-template-columns:1fr; gap:6px; }
+      .checkSetting { justify-content:flex-start; }
+    }
   </style>
 </head>
 <body>
@@ -115,8 +161,12 @@
       <div id="weaponPanel" class="panel">
         <div id="weaponName">Starter Pistol</div>
         <div><span id="ammo">12</span> / <span id="reserve">96</span></div>
-        <div class="small">B Shop · R Reload · Q Medkit · G Grenade · E Armor</div>
+        <div class="small">B Shop · P Settings · R Reload · Q Medkit · G Grenade · E Armor</div>
       </div>
+    </div>
+    <div id="bossWrap">
+      <div id="bossHeader"><span id="bossName">WAVE THREAT</span><span id="bossText">100 / 100</span></div>
+      <div id="bossBarOuter"><div id="bossBar"></div></div>
     </div>
     <div id="message"></div>
     <div id="crosshair"></div>
@@ -146,8 +196,12 @@
         <div><b>B</b> — Weapon shop</div>
         <div><b>Space</b> — Jump</div>
         <div><b>1 / 2</b> — Cycle owned weapons</div>
+        <div><b>P</b> — Settings</div>
       </div>
-      <button id="startBtn">CLICK TO START</button>
+      <div class="buttonRow">
+        <button id="startBtn">CLICK TO START</button>
+        <button id="introSettingsBtn" class="secondaryButton">SETTINGS</button>
+      </div>
       <p class="small">Click the game again whenever the mouse is released.</p>
     </div>
   </div>
@@ -160,8 +214,32 @@
           <div class="small">Buy 60 guns, five melee weapons, grenades, medkits, and armor plates.</div>
         </div>
         <div id="shopTokens">🪙 0</div>
-        <button id="shopClose">CLOSE (B)</button>
+        <div class="buttonRow">
+          <button id="shopSettingsBtn" class="secondaryButton">SETTINGS</button>
+          <button id="shopClose">CLOSE (B)</button>
+        </div>
       </div>
+      <div id="shopToolbar">
+        <input id="shopSearch" type="search" placeholder="Search weapons" aria-label="Search weapons" />
+        <select id="shopCategory" aria-label="Weapon category">
+          <option value="All">All categories</option>
+          <option value="Pistol">Pistols</option>
+          <option value="SMG">SMGs</option>
+          <option value="Rifle">Rifles</option>
+          <option value="Shotgun">Shotguns</option>
+          <option value="Sniper">Snipers</option>
+          <option value="LMG">LMGs</option>
+          <option value="Melee">Melee</option>
+          <option value="Utility">Utilities</option>
+        </select>
+        <select id="shopSort" aria-label="Sort armory">
+          <option value="price">Price: low to high</option>
+          <option value="dps">Damage output</option>
+          <option value="damage">Damage per hit</option>
+          <option value="name">Name</option>
+        </select>
+      </div>
+      <div id="equippedComparison"></div>
       <div id="shopList"></div>
     </div>
   </div>
@@ -170,7 +248,44 @@
     <div id="gameOverCard">
       <h1>YOU WERE ELIMINATED</h1>
       <p>You keep your purchased weapons and tokens.</p>
-      <button id="respawnBtn">RESPAWN</button>
+      <div class="buttonRow">
+        <button id="respawnBtn">RESPAWN</button>
+        <button id="gameOverSettingsBtn" class="secondaryButton">SETTINGS</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings">
+    <div id="settingsCard">
+      <h2>SETTINGS</h2>
+      <div class="small" style="text-align:center">Changes are saved automatically.</div>
+      <div id="settingsGrid">
+        <div class="settingRow">
+          <label for="sensitivityInput">Mouse sensitivity <output id="sensitivityValue">1.00×</output></label>
+          <input id="sensitivityInput" type="range" min="0.4" max="2" step="0.05" />
+        </div>
+        <div class="settingRow">
+          <label for="volumeInput">Master volume <output id="volumeValue">58%</output></label>
+          <input id="volumeInput" type="range" min="0" max="1" step="0.05" />
+        </div>
+        <div class="settingRow">
+          <label for="graphicsInput">Graphics quality</label>
+          <select id="graphicsInput">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+        <div class="settingRow">
+          <label for="crosshairInput">Crosshair color</label>
+          <input id="crosshairInput" type="color" />
+        </div>
+        <div class="settingRow">
+          <label for="cameraMotionInput">Weapon and camera motion</label>
+          <div class="checkSetting"><input id="cameraMotionInput" type="checkbox" /><span>Enabled</span></div>
+        </div>
+      </div>
+      <div class="buttonRow"><button id="settingsClose">SAVE &amp; CLOSE (P)</button></div>
     </div>
   </div>
 
@@ -182,6 +297,27 @@
     const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
     const rand = (min, max) => Math.random() * (max - min) + min;
     const randInt = (min, max) => Math.floor(rand(min, max + 1));
+    const SAVE_KEY = "tokenStrikeSaveV2";
+
+    function loadSavedGame() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch {
+        return {};
+      }
+    }
+
+    const savedGame = loadSavedGame();
+    const savedProgress = savedGame.progress || {};
+    const savedSettings = savedGame.settings || {};
+    const settings = {
+      sensitivity: clamp(Number(savedSettings.sensitivity) || 1, .4, 2),
+      volume: clamp(Number.isFinite(Number(savedSettings.volume)) ? Number(savedSettings.volume) : .58, 0, 1),
+      graphics: ["low", "medium", "high"].includes(savedSettings.graphics) ? savedSettings.graphics : "high",
+      cameraMotion: savedSettings.cameraMotion !== false,
+      crosshair: /^#[0-9a-f]{6}$/i.test(savedSettings.crosshair || "") ? savedSettings.crosshair : "#ffffff"
+    };
 
     const ui = {
       instructions: document.getElementById("instructions"),
@@ -196,14 +332,34 @@
       healthText: document.getElementById("healthText"),
       armorText: document.getElementById("armorText"),
       utilityText: document.getElementById("utilityText"),
+      bossWrap: document.getElementById("bossWrap"),
+      bossName: document.getElementById("bossName"),
+      bossText: document.getElementById("bossText"),
+      bossBar: document.getElementById("bossBar"),
       message: document.getElementById("message"),
       hitMarker: document.getElementById("hitMarker"),
       shop: document.getElementById("shop"),
       shopList: document.getElementById("shopList"),
       shopTokens: document.getElementById("shopTokens"),
       shopClose: document.getElementById("shopClose"),
+      shopSearch: document.getElementById("shopSearch"),
+      shopCategory: document.getElementById("shopCategory"),
+      shopSort: document.getElementById("shopSort"),
+      equippedComparison: document.getElementById("equippedComparison"),
+      shopSettingsBtn: document.getElementById("shopSettingsBtn"),
       gameOver: document.getElementById("gameOver"),
       respawnBtn: document.getElementById("respawnBtn"),
+      introSettingsBtn: document.getElementById("introSettingsBtn"),
+      gameOverSettingsBtn: document.getElementById("gameOverSettingsBtn"),
+      settings: document.getElementById("settings"),
+      settingsClose: document.getElementById("settingsClose"),
+      sensitivityInput: document.getElementById("sensitivityInput"),
+      sensitivityValue: document.getElementById("sensitivityValue"),
+      volumeInput: document.getElementById("volumeInput"),
+      volumeValue: document.getElementById("volumeValue"),
+      graphicsInput: document.getElementById("graphicsInput"),
+      crosshairInput: document.getElementById("crosshairInput"),
+      cameraMotionInput: document.getElementById("cameraMotionInput"),
       damageFlash: document.getElementById("damageFlash"),
       mapCanvas: document.getElementById("mapCanvas")
     };
@@ -214,9 +370,9 @@
 
     const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 250);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(devicePixelRatio, settings.graphics === "low" ? 1 : settings.graphics === "medium" ? 1.5 : 2));
     renderer.setSize(innerWidth, innerHeight);
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = settings.graphics !== "low";
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.insertBefore(renderer.domElement, document.body.firstChild);
     scene.add(camera);
@@ -225,7 +381,7 @@
     scene.add(hemi);
     const sun = new THREE.DirectionalLight(0xffffff, 1.5);
     sun.position.set(30, 50, 20);
-    sun.castShadow = true;
+    sun.castShadow = settings.graphics !== "low";
     sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.camera.left = -70; sun.shadow.camera.right = 70;
     sun.shadow.camera.top = 70; sun.shadow.camera.bottom = -70;
@@ -313,11 +469,12 @@
       maxHealth: 100,
       armor: 0,
       maxArmor: 100,
-      tokens: 500,
-      kills: 0,
-      wave: 1,
+      tokens: Number.isFinite(Number(savedProgress.tokens)) ? Math.max(0, Number(savedProgress.tokens)) : 500,
+      kills: Number.isFinite(Number(savedProgress.kills)) ? Math.max(0, Math.floor(Number(savedProgress.kills))) : 0,
+      wave: Number.isFinite(Number(savedProgress.wave)) ? Math.max(1, Math.floor(Number(savedProgress.wave))) : 1,
       dead: false,
       shopOpen: false,
+      settingsOpen: false,
       reloading: false,
       triggerHeld: false,
       lastShot: 0
@@ -327,6 +484,11 @@
     const key = {};
     let pointerLocked = false;
     let gameStarted = false;
+
+    function clearHeldInput() {
+      Object.keys(key).forEach(code => delete key[code]);
+      player.triggerHeld = false;
+    }
 
     const weaponPrefixes = [
       "Cinder","Viper","Falcon","Titan","Shadow","Nova","Raptor","Warden","Pulse","Cyclone",
@@ -342,27 +504,30 @@
     ];
 
     const guns = [];
+    const reloadByType = { Pistol:1.45, SMG:1.85, Rifle:2.15, Shotgun:2.65, Sniper:2.85, LMG:4.05 };
     for (let i = 0; i < 60; i++) {
       const tier = Math.floor(i / 6);
       const t = weaponTypes[i % weaponTypes.length];
-      const quality = 1 + tier * 0.055;
+      const typeIndex = i % weaponTypes.length;
+      const damageQuality = 1 + tier * .09;
       const price = i === 0 ? 0 : 250 + i * 145 + tier * tier * 55;
-      const damage = Math.round(rand(t.damage[0], t.damage[1]) * quality);
-      const fireRate = +(rand(t.fire[0], t.fire[1]) * (1 + tier * .018)).toFixed(2);
-      const mag = Math.round(rand(t.mag[0], t.mag[1]) + tier * 0.7);
-      const spread = +(rand(t.spread[0], t.spread[1]) / (1 + tier * .04)).toFixed(4);
-      const range = Math.round(rand(t.range[0], t.range[1]) + tier * 1.8);
-      const pellets = t.pellets ? randInt(t.pellets[0], t.pellets[1]) : 1;
+      const damage = Math.round(((t.damage[0] + t.damage[1]) / 2) * damageQuality);
+      const fireRate = +(((t.fire[0] + t.fire[1]) / 2) * (1 + tier * .025)).toFixed(2);
+      const mag = Math.round((t.mag[0] + t.mag[1]) / 2 + tier * 1.2);
+      const spread = +(((t.spread[0] + t.spread[1]) / 2) / (1 + tier * .055)).toFixed(4);
+      const range = Math.round((t.range[0] + t.range[1]) / 2 + tier * 2.2);
+      const pellets = t.pellets ? Math.round((t.pellets[0] + t.pellets[1]) / 2) : 1;
       guns.push({
         id: i,
-        name: i === 0 ? "Starter Pistol" : `${weaponPrefixes[(i * 7 + tier) % weaponPrefixes.length]} ${t.type} ${tier + 1}-${(i % 6) + 1}`,
+        name: i === 0 ? "Starter Pistol" : `${weaponPrefixes[(typeIndex * 3 + tier * 2) % weaponPrefixes.length]} ${t.type} Mk ${tier + 1}`,
         type: t.type,
+        tier: tier + 1,
         price,
         damage,
         fireRate,
         mag,
         reserveMax: mag * (t.type === "Sniper" ? 6 : t.type === "Shotgun" ? 8 : 10),
-        reload: +(t.type === "LMG" ? rand(3.4,4.8) : t.type === "Sniper" ? rand(2.3,3.5) : rand(1.25,2.7)).toFixed(2),
+        reload: +(reloadByType[t.type] * Math.max(.78, 1 - tier * .022)).toFixed(2),
         spread,
         range,
         pellets,
@@ -390,12 +555,21 @@
       { id:"armorPlate", name:"Armor Plate", price:180, description:"Adds 50 armor", key:"E" }
     ];
 
+    const savedOwned = Array.isArray(savedProgress.owned)
+      ? savedProgress.owned.map(Number).filter(id => Number.isInteger(id) && id >= 0 && id < guns.length)
+      : [];
+    const initialOwned = new Set([0, ...savedOwned]);
+    const savedEquipped = Number(savedProgress.equipped);
     const inventory = {
-      owned: new Set([0]),
-      equipped: 0,
+      owned: initialOwned,
+      equipped: initialOwned.has(savedEquipped) ? savedEquipped : 0,
       ammo: {},
       reserve: {},
-      utilities: { medkit: 2, grenade: 3, armorPlate: 1 }
+      utilities: {
+        medkit: Number.isFinite(Number(savedProgress.utilities?.medkit)) ? Math.max(0, Math.floor(Number(savedProgress.utilities.medkit))) : 2,
+        grenade: Number.isFinite(Number(savedProgress.utilities?.grenade)) ? Math.max(0, Math.floor(Number(savedProgress.utilities.grenade))) : 3,
+        armorPlate: Number.isFinite(Number(savedProgress.utilities?.armorPlate)) ? Math.max(0, Math.floor(Number(savedProgress.utilities.armorPlate))) : 1
+      }
     };
     guns.forEach(g => {
       inventory.ammo[g.id] = g.isMelee ? 0 : g.mag;
@@ -403,6 +577,29 @@
     });
 
     function gun() { return guns[inventory.equipped]; }
+
+    function weaponDps(g) {
+      return g.damage * (g.pellets || 1) * g.fireRate;
+    }
+
+    function saveGame() {
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify({
+          version: 2,
+          progress: {
+            tokens: Math.floor(player.tokens),
+            kills: player.kills,
+            wave: player.wave,
+            owned: [...inventory.owned],
+            equipped: inventory.equipped,
+            utilities: { ...inventory.utilities }
+          },
+          settings: { ...settings }
+        }));
+      } catch {
+        // The game remains playable when storage is unavailable.
+      }
+    }
 
 
     // Procedural weapon audio: no external sound files are needed.
@@ -424,7 +621,7 @@
         compressor.release.value = .16;
 
         audioMaster = audioCtx.createGain();
-        audioMaster.gain.value = .58;
+        audioMaster.gain.value = settings.volume;
         audioMaster.connect(compressor);
         compressor.connect(audioCtx.destination);
 
@@ -608,6 +805,7 @@
       obj.userData.basePosition = obj.position.clone();
       obj.userData.baseRotation = obj.rotation.clone();
       obj.userData.baseScale = obj.scale.clone();
+      obj.userData.baseVisible = obj.visible;
       weaponParts[name] = obj;
       return obj;
     }
@@ -617,7 +815,7 @@
       obj.position.copy(obj.userData.basePosition);
       obj.rotation.copy(obj.userData.baseRotation);
       obj.scale.copy(obj.userData.baseScale);
-      obj.visible = true;
+      obj.visible = obj.userData.baseVisible;
     }
 
     function addHands() {
@@ -847,7 +1045,14 @@
     }
 
     function rebuildWeaponView() {
+      weaponModel.traverse(obj => {
+        if (!obj.isMesh) return;
+        obj.geometry?.dispose();
+        if (Array.isArray(obj.material)) obj.material.forEach(material => material.dispose());
+        else obj.material?.dispose();
+      });
       weaponModel.clear();
+      weaponParts = {};
       const g = gun();
 
       const seed = g.id + 1;
@@ -866,7 +1071,7 @@
       const rubber = weaponMat(0x17191d, .05, .92);
       const glow = weaponMat(new THREE.Color().setHSL((hue + .42) % 1, .9, .55), .15, .22);
 
-      addWeaponHands();
+      addHands();
 
       const variant = seed % 10;
       const longVariant = seed % 4;
@@ -1086,13 +1291,99 @@
       });
     }
 
+    function animateReload(progress) {
+      const p = clamp(progress, 0, 1);
+      const smooth = value => value * value * (3 - 2 * value);
+      Object.values(weaponParts).forEach(resetPart);
+
+      // Lower the weapon throughout the reload so every weapon type has
+      // readable feedback, even when it has no detachable animated part.
+      const lower = Math.sin(Math.PI * p);
+      weaponView.position.y -= lower * .18;
+      weaponView.rotation.x += lower * .22;
+      weaponView.rotation.z -= lower * .28;
+
+      const magazine = weaponParts.magazine;
+      if (magazine) {
+        const removeEnd = reloadAnim.style === "LMG" ? .42 : .34;
+        const insertStart = reloadAnim.style === "LMG" ? .62 : .54;
+        if (p < removeEnd) {
+          magazine.position.y -= smooth(p / removeEnd) * .52;
+          magazine.rotation.z += smooth(p / removeEnd) * .16;
+        } else if (p < insertStart) {
+          magazine.position.y -= .52;
+          magazine.rotation.z += .16;
+          magazine.visible = false;
+        } else {
+          const insert = smooth((p - insertStart) / (1 - insertStart));
+          magazine.position.y -= (1 - insert) * .52;
+          magazine.rotation.z += (1 - insert) * .16;
+        }
+      }
+
+      if (weaponParts.leftHand) {
+        weaponParts.leftHand.position.y -= Math.sin(Math.PI * p) * .20;
+        weaponParts.leftHand.position.z -= Math.sin(Math.PI * p) * .16;
+      }
+
+      if (reloadAnim.style === "Pistol" && weaponParts.slide && p > .72) {
+        const cycle = Math.sin(clamp((p - .72) / .22, 0, 1) * Math.PI);
+        weaponParts.slide.position.z += cycle * .16;
+      }
+
+      if (reloadAnim.style === "Shotgun" && weaponParts.pump && p > .48) {
+        const cycle = Math.sin(clamp((p - .48) / .46, 0, 1) * Math.PI);
+        weaponParts.pump.position.z += cycle * .30;
+        if (weaponParts.shell) weaponParts.shell.visible = p > .54 && p < .72;
+      }
+
+      if (reloadAnim.style === "Sniper" && weaponParts.bolt && p > .52) {
+        const cycle = Math.sin(clamp((p - .52) / .40, 0, 1) * Math.PI);
+        weaponParts.bolt.position.z += cycle * .20;
+        weaponParts.bolt.rotation.x += cycle * .62;
+      }
+    }
+
+    function cancelReload() {
+      player.reloading = false;
+      reloadAnim.active = false;
+      reloadAnim.weaponId = -1;
+      reloadAnim.missing = 0;
+      Object.values(weaponParts).forEach(resetPart);
+    }
+
+    function completeReload() {
+      const g = gun();
+      if (!player.reloading || player.dead || reloadAnim.weaponId !== g.id) {
+        cancelReload();
+        return;
+      }
+
+      const loaded = Math.min(
+        reloadAnim.missing,
+        g.mag - inventory.ammo[g.id],
+        inventory.reserve[g.id]
+      );
+      inventory.ammo[g.id] += loaded;
+      inventory.reserve[g.id] -= loaded;
+      player.reloading = false;
+      reloadAnim.active = false;
+      reloadAnim.weaponId = -1;
+      reloadAnim.missing = 0;
+      Object.values(weaponParts).forEach(resetPart);
+      playReloadClick(true);
+      showMessage("RELOADED", 450);
+      updateHUD();
+    }
+
     function updateWeaponView(dt) {
-      weaponView.visible = gameStarted && !player.shopOpen && !player.dead;
+      weaponView.visible = gameStarted && pointerLocked && !player.shopOpen && !player.dead;
       if (!weaponView.visible) return;
 
       const moving = !!(key['KeyW'] || key['KeyA'] || key['KeyS'] || key['KeyD']);
       weaponBob += dt * (moving ? ((key['ShiftLeft'] || key['ShiftRight']) ? 13 : 8.5) : 2.1);
-      const bobAmount = moving ? .017 : .0035;
+      const motionScale = settings.cameraMotion ? 1 : .12;
+      const bobAmount = (moving ? .017 : .0035) * motionScale;
       const bx = Math.sin(weaponBob) * bobAmount;
       const by = Math.abs(Math.cos(weaponBob)) * bobAmount;
 
@@ -1108,8 +1399,8 @@
         weaponParts.muzzleFlash.rotation.z+=dt*18;
       }
 
-      weaponView.position.set(.37+bx+weaponSwayX*.0018,-.35-by-weaponKick*.055,-.69+weaponKick*.15+weaponSwayY*.001);
-      weaponView.rotation.set(weaponKick*.20+weaponSwayY*.0015,weaponSwing*.46+weaponSwayX*.0012,-bx*1.7-weaponSwing*.68-weaponSwayX*.0014);
+      weaponView.position.set(.37+bx+weaponSwayX*.0018*motionScale,-.35-by-weaponKick*.055*motionScale,-.69+weaponKick*.15*motionScale+weaponSwayY*.001*motionScale);
+      weaponView.rotation.set(weaponKick*.20*motionScale+weaponSwayY*.0015*motionScale,weaponSwing*.46*motionScale+weaponSwayX*.0012*motionScale,-bx*1.7-weaponSwing*.68*motionScale-weaponSwayX*.0014*motionScale);
 
       if(reloadAnim.active) {
         const p=((performance.now()/1000)-reloadAnim.start)/reloadAnim.duration;
@@ -1128,6 +1419,26 @@
       }
     }
 
+    function updateThreatHUD() {
+      const alive = world.bots.filter(bot => bot.alive);
+      if (!alive.length) {
+        ui.bossWrap.style.display = "none";
+        return;
+      }
+
+      const health = world.bots.reduce((sum, bot) => sum + Math.max(0, bot.health), 0);
+      const maxHealth = world.bots.reduce((sum, bot) => sum + bot.maxHealth, 0);
+      const featured = alive.find(bot => bot.isBoss);
+      ui.bossWrap.style.display = "block";
+      ui.bossName.textContent = featured
+        ? `${featured.name.toUpperCase()} — BOSS`
+        : alive.length === 1
+          ? alive[0].name.toUpperCase()
+          : `WAVE THREATS — ${alive.length} REMAINING`;
+      ui.bossText.textContent = `${Math.ceil(health)} / ${maxHealth}`;
+      ui.bossBar.style.width = clamp(health / maxHealth * 100, 0, 100) + "%";
+    }
+
     function updateHUD() {
       const g = gun();
       ui.tokens.textContent = Math.floor(player.tokens);
@@ -1142,6 +1453,7 @@
       ui.armorText.textContent = `Armor: ${Math.ceil(player.armor)} / ${player.maxArmor}`;
       ui.utilityText.textContent = `Q Medkit: ${inventory.utilities.medkit}   G Grenade: ${inventory.utilities.grenade}   E Armor: ${inventory.utilities.armorPlate}`;
       ui.shopTokens.textContent = `🪙 ${Math.floor(player.tokens)}`;
+      updateThreatHUD();
     }
 
     function showMessage(text, duration = 1100) {
@@ -1150,9 +1462,32 @@
       showMessage.timer = setTimeout(() => ui.message.textContent = "", duration);
     }
 
+    const shopState = { query:"", category:"All", sort:"price" };
+
+    function signed(value, suffix = "") {
+      const rounded = Math.round(value * 10) / 10;
+      return `${rounded > 0 ? "+" : ""}${rounded}${suffix}`;
+    }
+
     function buildShop() {
       ui.shopList.innerHTML = "";
-      guns.forEach(g => {
+      const equipped = gun();
+      ui.equippedComparison.textContent = equipped.isMelee
+        ? `Equipped: ${equipped.name} · ${Math.round(weaponDps(equipped))} DPS · ${equipped.range}m range`
+        : `Equipped: ${equipped.name} · ${Math.round(weaponDps(equipped))} DPS · ${equipped.mag} rounds · ${equipped.range}m range`;
+
+      const query = shopState.query.trim().toLowerCase();
+      const visibleGuns = guns
+        .filter(g => shopState.category === "All" || shopState.category === g.type)
+        .filter(g => !query || g.name.toLowerCase().includes(query) || g.type.toLowerCase().includes(query))
+        .sort((a,b) => {
+          if (shopState.sort === "dps") return weaponDps(b) - weaponDps(a);
+          if (shopState.sort === "damage") return (b.damage * (b.pellets || 1)) - (a.damage * (a.pellets || 1));
+          if (shopState.sort === "name") return a.name.localeCompare(b.name);
+          return a.price - b.price;
+        });
+
+      visibleGuns.forEach(g => {
         const card = document.createElement("div");
         card.className = "gun";
         if (inventory.owned.has(g.id)) card.classList.add("owned");
@@ -1160,12 +1495,16 @@
 
         const owned = inventory.owned.has(g.id);
         const stats = g.isMelee
-          ? `Type: Melee<br>Damage: ${g.damage} &nbsp; | &nbsp; Attack rate: ${g.fireRate}/sec<br>Range: ${g.range}m &nbsp; | &nbsp; Ammo: Unlimited`
-          : `Type: ${g.type}<br>Damage: ${g.damage}${g.pellets > 1 ? " × " + g.pellets : ""} &nbsp; | &nbsp; Fire rate: ${g.fireRate}/sec<br>Magazine: ${g.mag} &nbsp; | &nbsp; Reload: ${g.reload}s<br>Accuracy: ${Math.round((1 - g.spread * 8) * 100)}% &nbsp; | &nbsp; Range: ${g.range}m`;
+          ? `Type: Melee<br>Damage: ${g.damage} &nbsp; | &nbsp; Attack rate: ${g.fireRate}/sec<br>DPS: ${Math.round(weaponDps(g))} &nbsp; | &nbsp; Range: ${g.range}m<br>Ammo: Unlimited`
+          : `Type: ${g.type} · Tier ${g.tier}<br>Damage: ${g.damage}${g.pellets > 1 ? " × " + g.pellets : ""} &nbsp; | &nbsp; Fire rate: ${g.fireRate}/sec<br>DPS: ${Math.round(weaponDps(g))} &nbsp; | &nbsp; Magazine: ${g.mag}<br>Reload: ${g.reload}s &nbsp; | &nbsp; Accuracy: ${clamp(Math.round((1 - g.spread * 8) * 100),0,100)}%<br>Range: ${g.range}m`;
+        const comparison = g.id === equipped.id
+          ? "Currently equipped"
+          : `vs equipped: ${signed(weaponDps(g) - weaponDps(equipped), " DPS")} · ${signed(g.range - equipped.range, "m range")}`;
         card.innerHTML = `
           <div class="gunName">${g.name}</div>
           <div class="gunPrice">${g.price === 0 ? "FREE" : "🪙 " + g.price.toLocaleString()}</div>
           <div class="gunStats">${stats}</div>
+          <div class="gunCompare">${comparison}</div>
           <button>${inventory.equipped === g.id ? "EQUIPPED" : owned ? "EQUIP" : "BUY"}</button>
         `;
         const btn = card.querySelector("button");
@@ -1183,11 +1522,13 @@
           rebuildWeaponView();
           buildShop();
           updateHUD();
+          saveGame();
         };
         ui.shopList.appendChild(card);
       });
 
-      utilityDefs.forEach(u => {
+      const showUtilities = shopState.category === "All" || shopState.category === "Utility";
+      utilityDefs.filter(u => showUtilities && (!query || u.name.toLowerCase().includes(query))).forEach(u => {
         const card = document.createElement("div");
         card.className = "gun owned";
         card.innerHTML = `
@@ -1201,14 +1542,21 @@
           player.tokens -= u.price;
           inventory.utilities[u.id]++;
           showMessage(`${u.name} purchased!`);
-          buildShop(); updateHUD();
+          buildShop(); updateHUD(); saveGame();
         };
         ui.shopList.appendChild(card);
       });
+
+      if (!ui.shopList.children.length) {
+        const empty = document.createElement("div");
+        empty.className = "panel";
+        empty.textContent = "No armory items match those filters.";
+        ui.shopList.appendChild(empty);
+      }
     }
 
     function toggleShop(force) {
-      if (!gameStarted || player.dead) return;
+      if (!gameStarted || player.dead || player.settingsOpen) return;
       player.shopOpen = typeof force === "boolean" ? force : !player.shopOpen;
       ui.shop.style.display = player.shopOpen ? "flex" : "none";
       if (player.shopOpen) {
@@ -1221,6 +1569,7 @@
     }
 
     function cycleWeapon(dir) {
+      if (!gameStarted || !pointerLocked || player.dead || player.shopOpen || player.settingsOpen) return;
       const list = [...inventory.owned].sort((a,b)=>a-b);
       const idx = list.indexOf(inventory.equipped);
       inventory.equipped = list[(idx + dir + list.length) % list.length];
@@ -1228,11 +1577,66 @@
       rebuildWeaponView();
       updateHUD();
       showMessage(gun().name, 700);
+      saveGame();
     }
 
-    function createBot(x, z, level = 1) {
+    function applySettings() {
+      ui.sensitivityInput.value = settings.sensitivity;
+      ui.sensitivityValue.textContent = `${settings.sensitivity.toFixed(2)}×`;
+      ui.volumeInput.value = settings.volume;
+      ui.volumeValue.textContent = `${Math.round(settings.volume * 100)}%`;
+      ui.graphicsInput.value = settings.graphics;
+      ui.crosshairInput.value = settings.crosshair;
+      ui.cameraMotionInput.checked = settings.cameraMotion;
+      document.documentElement.style.setProperty("--crosshair-color", settings.crosshair);
+
+      const pixelRatio = settings.graphics === "low" ? 1 : settings.graphics === "medium" ? 1.5 : 2;
+      renderer.setPixelRatio(Math.min(devicePixelRatio, pixelRatio));
+      renderer.shadowMap.enabled = settings.graphics !== "low";
+      sun.castShadow = settings.graphics !== "low";
+      if (audioMaster && audioCtx) audioMaster.gain.setValueAtTime(settings.volume, audioCtx.currentTime);
+    }
+
+    function toggleSettings(force) {
+      player.settingsOpen = typeof force === "boolean" ? force : !player.settingsOpen;
+      ui.settings.style.display = player.settingsOpen ? "flex" : "none";
+      if (player.settingsOpen) {
+        clearHeldInput();
+        cancelReload();
+        document.exitPointerLock?.();
+        applySettings();
+      } else {
+        saveGame();
+        if (gameStarted && !player.dead && !player.shopOpen) renderer.domElement.requestPointerLock?.();
+      }
+    }
+
+    const enemyArchetypes = {
+      soldier: {
+        name:"Assault Trooper", color:0xc2412d, health:1, speed:1, damage:1,
+        fireInterval:1, accuracy:0, reward:1, scale:1, behavior:"assault", canShoot:true, shootRange:50
+      },
+      rusher: {
+        name:"Blade Rusher", color:0xdc2626, health:.78, speed:1.38, damage:1.18,
+        fireInterval:1, accuracy:-.12, reward:.9, scale:.92, behavior:"rusher", canShoot:false, shootRange:0
+      },
+      marksman: {
+        name:"Marksman", color:0x7c3aed, health:.72, speed:.82, damage:1.28,
+        fireInterval:1.34, accuracy:.19, reward:1.2, scale:.94, behavior:"marksman", canShoot:true, shootRange:72
+      },
+      juggernaut: {
+        name:"Juggernaut", color:0xb45309, health:1.85, speed:.68, damage:1.45,
+        fireInterval:.82, accuracy:-.04, reward:1.65, scale:1.24, behavior:"juggernaut", canShoot:true, shootRange:44
+      }
+    };
+
+    function createBot(x, z, level = 1, archetypeId = "soldier", isBoss = false) {
+      const archetype = enemyArchetypes[archetypeId] || enemyArchetypes.soldier;
       const group = new THREE.Group();
-      const bodyMat = new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(rand(.0,.08), .72, .44) });
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: archetype.color,
+        emissive: isBoss ? new THREE.Color(archetype.color).multiplyScalar(.12) : 0x000000
+      });
       const darkMat = new THREE.MeshStandardMaterial({ color: 0x111827 });
       const skinMat = new THREE.MeshStandardMaterial({ color: 0xd7a27a });
 
@@ -1242,6 +1646,7 @@
       head.position.y = 2.05; head.castShadow = true; group.add(head);
       const gunMesh = new THREE.Mesh(new THREE.BoxGeometry(.16,.15,.85), darkMat);
       gunMesh.position.set(.42,1.45,-.35); gunMesh.castShadow = true; group.add(gunMesh);
+      gunMesh.visible = archetype.canShoot;
       const leg1 = new THREE.Mesh(new THREE.BoxGeometry(.27,.75,.28), darkMat);
       const leg2 = leg1.clone();
       leg1.position.set(-.22,.48,0); leg2.position.set(.22,.48,0);
@@ -1249,26 +1654,36 @@
       group.add(leg1,leg2);
 
       group.position.set(x,0,z);
-      const bossScale = 1 + Math.min((level - 1) * .035, .85);
+      const bossScale = (1 + Math.min((level - 1) * .018, .32)) * archetype.scale * (isBoss ? 1.25 : 1);
       group.scale.setScalar(bossScale);
       scene.add(group);
 
-      // There is only one enemy each round. This boss grows stronger every round.
-      const bossHealth = Math.round(110 + level * 55 + Math.pow(level, 1.35) * 18);
+      const baseHealth = 65 + level * 22 + Math.pow(level, 1.18) * 8;
+      const enemyHealth = Math.round(baseHealth * archetype.health * (isBoss ? 2.25 : 1));
       const bot = {
         group, body, head,
+        name: isBoss ? `Elite ${archetype.name}` : archetype.name,
+        archetype: archetypeId,
+        behavior: archetype.behavior,
+        isBoss,
+        canShoot: archetype.canShoot,
+        shootRange: archetype.shootRange,
+        accuracyBonus: archetype.accuracy,
         spawnPosition: new THREE.Vector3(x, 0, z),
-        health: bossHealth,
-        maxHealth: bossHealth,
-        speed: 2.65 + Math.min(level * .24, 4.8),
-        damage: 7 + level * 2.2,
-        fireRate: Math.max(.22, 1.08 - level * .042),
+        health: enemyHealth,
+        maxHealth: enemyHealth,
+        speed: (2.7 + Math.min(level * .16, 2.5)) * archetype.speed,
+        damage: (5 + level * 1.25) * archetype.damage * (isBoss ? 1.12 : 1),
+        fireRate: Math.max(.34, 1.2 - level * .025) * archetype.fireInterval,
         lastShot: rand(0,1),
         radius: .5 * bossScale,
         alive: true,
         strafe: Math.random() < .5 ? -1 : 1,
         changeDir: rand(.6,2.0),
-        reward: 140 + level * 105,
+        stuckFor: 0,
+        avoidSign: Math.random() < .5 ? -1 : 1,
+        avoidTime: 0,
+        reward: Math.round((60 + level * 35) * archetype.reward * (isBoss ? 3 : 1)),
         level,
         lastMelee: 0,
         runPhase: rand(0,Math.PI*2),
@@ -1278,7 +1693,7 @@
       body.userData.bot = bot;
       body.userData.multiplier = 1;
       head.userData.bot = bot;
-      head.userData.multiplier = 1.8;
+      head.userData.multiplier = archetypeId === "juggernaut" ? 1.5 : 1.8;
       world.bots.push(bot);
       return bot;
     }
@@ -1292,18 +1707,29 @@
     }
 
     function spawnWave() {
-      // Remove defeated enemies from the list, then spawn exactly one boss.
       world.bots = world.bots.filter(bot => bot.alive);
-      let spawned = false, tries = 0;
-      while (!spawned && tries < 600) {
+      const isBossRound = player.wave % 5 === 0;
+      const count = isBossRound ? 1 : Math.min(1 + Math.floor((player.wave - 1) / 2), 5);
+      const unlocked = ["soldier"];
+      if (player.wave >= 2) unlocked.push("rusher");
+      if (player.wave >= 4) unlocked.push("marksman");
+      if (player.wave >= 7) unlocked.push("juggernaut");
+
+      let spawned = 0, tries = 0;
+      while (spawned < count && tries < 1200) {
         tries++;
         const x = rand(-78,78), z = rand(-78,78);
         if (validSpawn(x,z)) {
-          createBot(x,z,player.wave);
-          spawned = true;
+          const archetypeId = isBossRound ? "juggernaut" : unlocked[(player.wave + spawned) % unlocked.length];
+          createBot(x,z,player.wave,archetypeId,isBossRound);
+          spawned++;
         }
       }
-      showMessage(`ROUND ${player.wave} — ONE STRONGER ENEMY`, 1900);
+      updateThreatHUD();
+      showMessage(
+        isBossRound ? `ROUND ${player.wave} — JUGGERNAUT BOSS` : `ROUND ${player.wave} — ${spawned} HOSTILE${spawned === 1 ? "" : "S"}`,
+        1900
+      );
     }
 
     function removeBot(bot) {
@@ -1320,8 +1746,9 @@
       if (alive === 0) {
         player.wave++;
         player.health = Math.min(player.maxHealth, player.health + 35);
+        saveGame();
         setTimeout(spawnWave, 1400);
-      }
+      } else saveGame();
     }
 
     function burst(pos, color) {
@@ -1362,14 +1789,17 @@
       raycaster.far = g.range;
       const hitMeshes = world.bots.filter(b=>b.alive).flatMap(b=>b.hitMeshes);
       const hits = raycaster.intersectObjects(hitMeshes,false);
-      camera.rotation.z = rand(-.025,.025);
-      camera.rotation.x += .015;
+      if (settings.cameraMotion) {
+        camera.rotation.z = rand(-.025,.025);
+        camera.rotation.x += .015;
+      }
       if (!hits.length) { showMessage(g.name === "Ripper Chainsaw" ? "BRRRR!" : "SWING!", 180); return; }
       const hit = hits[0];
       const bot = hit.object.userData.bot;
       if (!bot || !bot.alive) return;
       const mult = hit.object.userData.multiplier || 1;
       bot.health -= g.damage * mult;
+      updateThreatHUD();
       burst(hit.point, g.name === "Ripper Chainsaw" ? 0xff3b30 : 0xffa340);
       ui.hitMarker.style.opacity = 1;
       setTimeout(()=>ui.hitMarker.style.opacity=0,70);
@@ -1377,25 +1807,26 @@
     }
 
     function useMedkit() {
-      if (player.dead || player.shopOpen || inventory.utilities.medkit <= 0) { showMessage("No medkits!"); return; }
+      if (!gameStarted || !pointerLocked || player.dead || player.shopOpen || player.settingsOpen || inventory.utilities.medkit <= 0) { showMessage("No medkits!"); return; }
       if (player.health >= player.maxHealth) { showMessage("Health is already full"); return; }
       inventory.utilities.medkit--;
       player.health = Math.min(player.maxHealth, player.health + 45);
-      showMessage("+45 HEALTH"); updateHUD();
+      showMessage("+45 HEALTH"); updateHUD(); saveGame();
     }
 
     function useArmorPlate() {
-      if (player.dead || player.shopOpen || inventory.utilities.armorPlate <= 0) { showMessage("No armor plates!"); return; }
+      if (!gameStarted || !pointerLocked || player.dead || player.shopOpen || player.settingsOpen || inventory.utilities.armorPlate <= 0) { showMessage("No armor plates!"); return; }
       if (player.armor >= player.maxArmor) { showMessage("Armor is already full"); return; }
       inventory.utilities.armorPlate--;
       player.armor = Math.min(player.maxArmor, player.armor + 50);
-      showMessage("+50 ARMOR"); updateHUD();
+      showMessage("+50 ARMOR"); updateHUD(); saveGame();
     }
 
     function throwGrenade() {
       if (!pointerLocked || player.dead || player.shopOpen) return;
       if (inventory.utilities.grenade <= 0) { showMessage("No grenades!"); return; }
       inventory.utilities.grenade--;
+      saveGame();
       const mesh = new THREE.Mesh(
         new THREE.SphereGeometry(.18,10,8),
         new THREE.MeshStandardMaterial({color:0x1f2937, metalness:.55, roughness:.45})
@@ -1419,6 +1850,7 @@
           if (bot.health <= 0) removeBot(bot);
         }
       }
+      updateThreatHUD();
       const playerDist = player.position.distanceTo(pos);
       if (playerDist < 6) damagePlayer(Math.max(0,45*(1-playerDist/6)));
       showMessage("BOOM!",450);
@@ -1457,6 +1889,10 @@
       const origin = camera.getWorldPosition(new THREE.Vector3());
       const forward = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
       const allHitMeshes = world.bots.filter(b=>b.alive).flatMap(b=>b.hitMeshes);
+      const shotTargets = [
+        ...world.colliders.map(c => c.mesh),
+        ...allHitMeshes
+      ];
 
       let landed = false;
       for (let p=0; p<g.pellets; p++) {
@@ -1468,7 +1904,9 @@
 
         raycaster.set(origin,direction);
         raycaster.far = g.range;
-        const hits = raycaster.intersectObjects(allHitMeshes, false);
+        // World geometry and enemies share one raycast so the nearest object
+        // wins. This prevents the player from shooting through cover.
+        const hits = raycaster.intersectObjects(shotTargets, false);
         let end = origin.clone().add(direction.clone().multiplyScalar(g.range));
 
         if (hits.length) {
@@ -1485,10 +1923,11 @@
         }
         tracer(origin.clone().add(direction.clone().multiplyScalar(.4)), end);
       }
+      if (landed) updateThreatHUD();
 
-      camera.rotation.z = rand(-.006,.006);
+      if (settings.cameraMotion) camera.rotation.z = rand(-.006,.006);
       const recoilScale = g.type === 'Shotgun' ? 2.2 : g.type === 'Sniper' ? 2.5 : g.type === 'LMG' ? .8 : 1;
-      camera.rotation.x += rand(.0018,.0058)*recoilScale;
+      if (settings.cameraMotion) camera.rotation.x += rand(.0018,.0058)*recoilScale;
       if (landed) {
         ui.hitMarker.style.opacity = 1;
         setTimeout(()=>ui.hitMarker.style.opacity=0,70);
@@ -1499,6 +1938,7 @@
 
     function reload() {
       const g = gun();
+      if (!gameStarted || !pointerLocked || player.dead || player.shopOpen) return;
       if (g.isMelee) { showMessage('Melee weapons never need reloading',700); return; }
       if (player.reloading || inventory.ammo[g.id] >= g.mag || inventory.reserve[g.id] <= 0) return;
       player.reloading = true;
@@ -1523,6 +1963,9 @@
         bot.lastShot = performance.now() / 1000;
         bot.strafe = Math.random() < .5 ? -1 : 1;
         bot.changeDir = rand(.6, 2.0);
+        bot.stuckFor = 0;
+        bot.avoidSign = Math.random() < .5 ? -1 : 1;
+        bot.avoidTime = 0;
       }
     }
 
@@ -1558,6 +2001,7 @@
       camera.position.copy(player.position);
       ui.gameOver.style.display = "none";
       updateHUD();
+      saveGame();
       renderer.domElement.requestPointerLock?.();
     }
 
@@ -1579,6 +2023,73 @@
       return raycaster.intersectObjects(meshes,false).length > 0;
     }
 
+    function moveBotWithCollisions(bot, delta) {
+      const bpos = bot.group.position;
+      const startX = bpos.x, startZ = bpos.z;
+      const nx = bpos.x + delta.x;
+      const nz = bpos.z + delta.z;
+      if (!collides(nx, bpos.z, bot.radius)) bpos.x = nx;
+      if (!collides(bpos.x, nz, bot.radius)) bpos.z = nz;
+      return Math.hypot(bpos.x - startX, bpos.z - startZ);
+    }
+
+    function botPathClear(bot, direction, distance) {
+      if (direction.lengthSq() < .0001) return true;
+      const dir = direction.clone().normalize();
+      const stride = Math.max(.35, bot.radius * .7);
+      for (let d = stride; d <= distance; d += stride) {
+        const x = bot.group.position.x + dir.x * d;
+        const z = bot.group.position.z + dir.z * d;
+        if (collides(x, z, bot.radius)) return false;
+      }
+      return true;
+    }
+
+    function chooseAvoidanceSign(bot, forward) {
+      const left = new THREE.Vector3(-forward.z, 0, forward.x);
+      const right = left.clone().multiplyScalar(-1);
+      const scoreSide = side => {
+        let score = 0;
+        const distances = [bot.radius + .55, bot.radius + 1.2, bot.radius + 2.1, bot.radius + 3.1];
+        for (const distance of distances) {
+          const x = bot.group.position.x + side.x * distance + forward.x * Math.min(.8, distance * .25);
+          const z = bot.group.position.z + side.z * distance + forward.z * Math.min(.8, distance * .25);
+          if (!collides(x, z, bot.radius)) score++;
+        }
+        return score;
+      };
+      const leftScore = scoreSide(left);
+      const rightScore = scoreSide(right);
+      if (leftScore === rightScore) return bot.strafe;
+      return leftScore > rightScore ? 1 : -1;
+    }
+
+    function steerBotAroundStructures(bot, desired, targetDirection, dt) {
+      if (desired.lengthSq() < .0001) return desired;
+      const wanted = desired.clone().normalize();
+      const forward = targetDirection.clone().normalize();
+      const probeDistance = Math.max(1.7, bot.radius * 3.2);
+      const directClear = botPathClear(bot, wanted, probeDistance);
+      bot.avoidTime = Math.max(0, bot.avoidTime - dt);
+
+      if (!directClear && bot.avoidTime <= 0) {
+        bot.avoidSign = chooseAvoidanceSign(bot, forward);
+        bot.avoidTime = 1.35;
+      }
+      if (directClear && bot.avoidTime <= .28) return wanted;
+
+      let wallFollow = new THREE.Vector3(-forward.z, 0, forward.x).multiplyScalar(bot.avoidSign);
+      let steered = wallFollow.clone().addScaledVector(wanted, .22).normalize();
+      if (!botPathClear(bot, steered, Math.max(1.1, bot.radius * 2.1))) {
+        if (botPathClear(bot, wallFollow, Math.max(1.1, bot.radius * 2.1))) return wallFollow;
+        bot.avoidSign *= -1;
+        bot.avoidTime = 1.35;
+        wallFollow.multiplyScalar(-1);
+        steered = wallFollow.clone().addScaledVector(forward, -.28).normalize();
+      }
+      return steered;
+    }
+
     function updateBots(dt, time) {
       const p2 = new THREE.Vector3(player.position.x,0,player.position.z);
 
@@ -1596,34 +2107,57 @@
           bot.changeDir = rand(.7,2.1);
         }
 
-        // Enemies now rush straight toward the player and sprint from long range.
-        let move = dir.clone();
+        let move;
         const side = new THREE.Vector3(-dir.z,0,dir.x);
-        if (dist > 4) move.addScaledVector(side, bot.strafe * .12);
-        if (dist < 1.45) move.set(0,0,0);
-        const rushSpeed = bot.speed * (dist > 8 ? 1.75 : 1.25);
-        move.normalize().multiplyScalar(rushSpeed*dt);
+        if (bot.behavior === "marksman") {
+          if (dist < 17) move = dir.clone().multiplyScalar(-1).addScaledVector(side, bot.strafe * .45);
+          else if (dist > 34) move = dir.clone().multiplyScalar(.65).addScaledVector(side, bot.strafe * .25);
+          else move = side.clone().multiplyScalar(bot.strafe);
+        } else if (bot.behavior === "rusher") {
+          move = dir.clone().addScaledVector(side, bot.strafe * .08);
+        } else if (bot.behavior === "juggernaut") {
+          move = dir.clone().addScaledVector(side, bot.strafe * .05);
+        } else {
+          move = dir.clone().addScaledVector(side, bot.strafe * .22);
+        }
+        if (dist < 1.45 && bot.behavior !== "marksman") move.set(0,0,0);
+        const distanceBoost = dist > 12 ? (bot.behavior === "rusher" ? 1.75 : 1.35) : 1;
+        const rushSpeed = bot.speed * distanceBoost;
+        const moveStep = rushSpeed * dt;
+        move = steerBotAroundStructures(bot, move, dir, dt).multiplyScalar(moveStep);
         bot.runPhase += dt * rushSpeed * 4.5;
         bot.leg1.rotation.x = Math.sin(bot.runPhase) * .72;
         bot.leg2.rotation.x = -Math.sin(bot.runPhase) * .72;
 
-        const nx = bpos.x + move.x, nz = bpos.z + move.z;
-        if (!collides(nx,bpos.z,.55)) bpos.x = nx; else bot.strafe *= -1;
-        if (!collides(bpos.x,nz,.55)) bpos.z = nz; else bot.strafe *= -1;
+        const moved = moveBotWithCollisions(bot, move);
+        if (dist > 1.8 && moved < moveStep * .18) {
+          bot.stuckFor += dt;
+          if (bot.stuckFor > .22) {
+            bot.avoidSign *= -1;
+            bot.avoidTime = 1.5;
+            const escape = side.clone().multiplyScalar(bot.avoidSign).addScaledVector(dir, -.35).normalize().multiplyScalar(moveStep * 1.2);
+            moveBotWithCollisions(bot, escape);
+            bot.changeDir = rand(.9, 1.8);
+            bot.stuckFor = 0;
+          }
+        } else {
+          bot.stuckFor = Math.max(0, bot.stuckFor - dt * 2);
+        }
 
         bot.group.rotation.y = Math.atan2(-dir.x,-dir.z);
 
-        if (dist < 1.8 && time - bot.lastMelee > .65) {
+        const meleeDelay = bot.behavior === "rusher" ? .48 : bot.behavior === "juggernaut" ? .82 : .65;
+        if (dist < (bot.behavior === "rusher" ? 2.05 : 1.8) && time - bot.lastMelee > meleeDelay) {
           bot.lastMelee = time;
-          damagePlayer(bot.damage * 1.35);
+          damagePlayer(bot.damage * (bot.behavior === "rusher" ? 1.5 : 1.25));
         }
 
-        if (dist >= 2.4 && dist < 50 && time - bot.lastShot > bot.fireRate) {
-          const eye = bpos.clone().add(new THREE.Vector3(0,1.65,0));
+        if (bot.canShoot && dist >= 2.4 && dist < bot.shootRange && time - bot.lastShot > bot.fireRate) {
+          const eye = bpos.clone().add(new THREE.Vector3(0,1.65 * bot.group.scale.y,0));
           const target = player.position.clone().add(new THREE.Vector3(rand(-.25,.25),rand(-.35,.25),rand(-.25,.25)));
           if (!lineBlocked(eye,target)) {
             bot.lastShot = time + rand(-.12,.15);
-            const accuracy = clamp(.40 + bot.level*.025 - dist*.006, .18, .78);
+            const accuracy = clamp(.40 + bot.level*.018 + bot.accuracyBonus - dist*.005, .16, .84);
             const hit = Math.random() < accuracy;
             const end = hit ? player.position.clone() : target.add(new THREE.Vector3(rand(-4,4),rand(-2,3),rand(-4,4)));
             tracer(eye,end,0xff4b4b);
@@ -1702,11 +2236,11 @@
         ctx.fillRect(tx(c.minX),tz(c.minZ),(c.maxX-c.minX)*scale,(c.maxZ-c.minZ)*scale);
       });
 
-      ctx.fillStyle="#ef4444";
       world.bots.forEach(b=>{
         if (!b.alive) return;
+        ctx.fillStyle = b.isBoss ? "#facc15" : b.archetype === "marksman" ? "#c084fc" : b.archetype === "rusher" ? "#fb7185" : "#ef4444";
         ctx.beginPath();
-        ctx.arc(tx(b.group.position.x),tz(b.group.position.z),2.6,0,Math.PI*2);
+        ctx.arc(tx(b.group.position.x),tz(b.group.position.z),b.isBoss ? 4 : 2.6,0,Math.PI*2);
         ctx.fill();
       });
 
@@ -1729,11 +2263,51 @@
     };
     ui.shopClose.onclick = () => toggleShop(false);
     ui.respawnBtn.onclick = respawn;
+    ui.introSettingsBtn.onclick = () => toggleSettings(true);
+    ui.shopSettingsBtn.onclick = () => toggleSettings(true);
+    ui.gameOverSettingsBtn.onclick = () => toggleSettings(true);
+    ui.settingsClose.onclick = () => toggleSettings(false);
+    ui.shopSearch.oninput = () => {
+      shopState.query = ui.shopSearch.value;
+      buildShop();
+    };
+    ui.shopCategory.onchange = () => {
+      shopState.category = ui.shopCategory.value;
+      buildShop();
+    };
+    ui.shopSort.onchange = () => {
+      shopState.sort = ui.shopSort.value;
+      buildShop();
+    };
+    ui.sensitivityInput.oninput = () => {
+      settings.sensitivity = clamp(Number(ui.sensitivityInput.value), .4, 2);
+      applySettings(); saveGame();
+    };
+    ui.volumeInput.oninput = () => {
+      settings.volume = clamp(Number(ui.volumeInput.value), 0, 1);
+      applySettings(); saveGame();
+    };
+    ui.graphicsInput.onchange = () => {
+      settings.graphics = ui.graphicsInput.value;
+      applySettings(); saveGame();
+    };
+    ui.crosshairInput.oninput = () => {
+      settings.crosshair = ui.crosshairInput.value;
+      applySettings(); saveGame();
+    };
+    ui.cameraMotionInput.onchange = () => {
+      settings.cameraMotion = ui.cameraMotionInput.checked;
+      applySettings(); saveGame();
+    };
 
     document.addEventListener("pointerlockchange", () => {
       pointerLocked = document.pointerLockElement === renderer.domElement;
-      if (!pointerLocked && gameStarted && !player.shopOpen && !player.dead) {
-        showMessage("CLICK TO CONTINUE", 100000);
+      if (!pointerLocked) {
+        clearHeldInput();
+        cancelReload();
+        if (gameStarted && !player.shopOpen && !player.settingsOpen && !player.dead) {
+          showMessage("CLICK TO CONTINUE", 100000);
+        }
       } else if (pointerLocked) {
         ui.message.textContent = "";
       }
@@ -1741,15 +2315,17 @@
 
     renderer.domElement.addEventListener("click", () => {
       ensureAudio();
-      if (gameStarted && !player.shopOpen && !player.dead && !pointerLocked) renderer.domElement.requestPointerLock?.();
+      if (gameStarted && !player.shopOpen && !player.settingsOpen && !player.dead && !pointerLocked) renderer.domElement.requestPointerLock?.();
     });
 
     document.addEventListener("mousemove", e => {
-      if (!pointerLocked || player.shopOpen || player.dead) return;
-      player.yaw -= e.movementX * .0022;
-      player.pitch -= e.movementY * .0022;
-      weaponSwayX = clamp(weaponSwayX + e.movementX, -35, 35);
-      weaponSwayY = clamp(weaponSwayY + e.movementY, -28, 28);
+      if (!pointerLocked || player.shopOpen || player.settingsOpen || player.dead) return;
+      player.yaw -= e.movementX * .0022 * settings.sensitivity;
+      player.pitch -= e.movementY * .0022 * settings.sensitivity;
+      if (settings.cameraMotion) {
+        weaponSwayX = clamp(weaponSwayX + e.movementX, -35, 35);
+        weaponSwayY = clamp(weaponSwayY + e.movementY, -28, 28);
+      }
       player.pitch = clamp(player.pitch,-1.48,1.48);
     });
 
@@ -1764,7 +2340,10 @@
     });
 
     document.addEventListener("keydown", e => {
+      if (["INPUT", "SELECT", "TEXTAREA"].includes(e.target?.tagName)) return;
       key[e.code]=true;
+      if (e.repeat) return;
+      if (e.code==="KeyP") { toggleSettings(); return; }
       if (e.code==="KeyR") reload();
       if (e.code==="KeyQ") useMedkit();
       if (e.code==="KeyG") throwGrenade();
@@ -1776,7 +2355,15 @@
         player.velocity.y=7.3; player.onGround=false;
       }
     });
+    window.addEventListener("beforeunload", saveGame);
     document.addEventListener("keyup", e => key[e.code]=false);
+    window.addEventListener("blur", clearHeldInput);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        clearHeldInput();
+        cancelReload();
+      }
+    });
 
     window.addEventListener("resize", () => {
       camera.aspect=innerWidth/innerHeight;
@@ -1790,14 +2377,17 @@
       const dt = Math.min(clock.getDelta(),.04);
       const time = performance.now()/1000;
       updatePlayer(dt);
-      if (!player.dead && gameStarted && !player.shopOpen) updateBots(dt,time);
+      const activeGameplay = pointerLocked && document.visibilityState === "visible"
+        && !player.dead && gameStarted && !player.shopOpen && !player.settingsOpen;
+      if (activeGameplay) updateBots(dt,time);
       updateParticles(dt);
-      updateGrenades(dt);
+      if (activeGameplay) updateGrenades(dt);
       updateWeaponView(dt);
       drawMinimap();
       renderer.render(scene,camera);
     }
 
+    applySettings();
     rebuildWeaponView();
     buildShop();
     updateHUD();
