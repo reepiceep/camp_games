@@ -16,5 +16,6 @@ A collection of standalone HTML5 games. Open `index.html` for the arcade hub tha
 | `neon_dash_poc.html` | Neon Dash | Fast neon endless runner, two levels. |
 | `clockwork_wave_dash.html` | Clockwork Wave Dash | Wave-style flying dash through a steampunk city with a giant boss fight on Hard. |
 | `orb_clicker_mobile.html` | Asian Orb Clicker | Idle/active clicker with abilities, a heat/overheat system, and mobile-first controls. |
+| `random-bowl-builder.html` | Random Bowl Builder | Drag-and-drop cooking game — match randomly generated food bowl orders before time runs out. |
 
 External (not a local file): **GPT Street Fighter** — linked from the hub at `https://gtpstreetfighter.vercel.app/`.

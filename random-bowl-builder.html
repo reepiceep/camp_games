@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Random Bowl Builder</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #ffe8bd, #ffc9a8);
+      color: #3c2418;
+    }
+
+    .game {
+      width: min(1100px, 95%);
+      margin: auto;
+      padding: 20px 0 40px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      text-align: center;
+      color: #8c321f;
+      font-size: clamp(2.2rem, 6vw, 4rem);
+    }
+
+    .subtitle {
+      margin: 0 0 18px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .stat {
+      padding: 12px;
+      background: rgba(255,255,255,.88);
+      border-radius: 15px;
+      text-align: center;
+      box-shadow: 0 5px 12px rgba(0,0,0,.1);
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 4px;
+      color: #9b3f22;
+      font-size: 1.35rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px 1fr 320px;
+      gap: 16px;
+    }
+
+    .panel {
+      padding: 16px;
+      background: rgba(255,255,255,.9);
+      border-radius: 20px;
+      box-shadow: 0 8px 20px rgba(88,44,20,.15);
+    }
+
+    .panel h2 {
+      margin-top: 0;
+      color: #8c321f;
+    }
+
+    .customer {
+      text-align: center;
+    }
+
+    .customer-face {
+      font-size: 6rem;
+      animation: bob 1.8s ease-in-out infinite;
+    }
+
+    @keyframes bob {
+      50% { transform: translateY(-7px); }
+    }
+
+    .order-card {
+      margin-top: 12px;
+      padding: 13px;
+      border: 2px solid #efc4ae;
+      border-radius: 16px;
+      background: white;
+      text-align: left;
+    }
+
+    #orderName {
+      margin-bottom: 8px;
+      color: #9f4326;
+      font-size: 1.15rem;
+      font-weight: bold;
+    }
+
+    #orderList {
+      margin: 0;
+      padding-left: 20px;
+      line-height: 1.7;
+    }
+
+    .kitchen {
+      display: flex;
+      min-height: 520px;
+      flex-direction: column;
+    }
+
+    .bowl-area {
+      display: flex;
+      flex: 1;
+      min-height: 330px;
+      align-items: center;
+      justify-content: center;
+      border: 3px dashed #d98f6c;
+      border-radius: 22px;
+      background: #fff4df;
+      transition: .2s;
+    }
+
+    .bowl-area.drag-over {
+      border-color: #5c9d3e;
+      background: #efffe8;
+    }
+
+    .bowl {
+      position: relative;
+      width: min(340px, 78vw);
+      height: 190px;
+      overflow: hidden;
+      border: 10px solid #cbd2d5;
+      border-top-width: 15px;
+      border-radius: 25px 25px 170px 170px;
+      background: linear-gradient(#fff, #e8eef0);
+      box-shadow: inset 0 -20px rgba(0,0,0,.04), 0 18px 20px rgba(0,0,0,.15);
+    }
+
+    .empty {
+      position: absolute;
+      top: 35px;
+      width: 100%;
+      color: #9d806f;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .food-layer {
+      position: absolute;
+      right: 15px;
+      left: 15px;
+      height: 42px;
+      overflow: hidden;
+      border-radius: 50%;
+      text-align: center;
+      font-size: 2rem;
+      letter-spacing: 4px;
+    }
+
+    .bowl-items {
+      min-height: 52px;
+      margin-top: 12px;
+      padding: 11px;
+      border-radius: 14px;
+      background: #fff5e7;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .buttons button {
+      flex: 1;
+      padding: 12px;
+      border: 0;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    #clearBtn { background: #f3b84e; }
+    #serveBtn { background: #63ad3f; color: white; }
+    #skipBtn { background: #8d3521; color: white; }
+
+    .message {
+      min-height: 50px;
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 13px;
+      background: white;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .message.good {
+      background: #e7ffdc;
+      color: #3e7726;
+    }
+
+    .message.bad {
+      background: #ffe2dc;
+      color: #9b3021;
+    }
+
+    .ingredient-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 9px;
+    }
+
+    .ingredient {
+      min-height: 78px;
+      padding: 7px;
+      border: 2px solid #ecd0c0;
+      border-radius: 14px;
+      background: #fffaf5;
+      cursor: grab;
+      text-align: center;
+      transition: transform .15s, border-color .15s;
+    }
+
+    .ingredient:hover {
+      transform: translateY(-3px);
+      border-color: #d4825c;
+    }
+
+    .ingredient .emoji {
+      display: block;
+      margin-bottom: 3px;
+      font-size: 2rem;
+    }
+
+    .ingredient .label {
+      font-size: .85rem;
+      font-weight: bold;
+    }
+
+    .help {
+      color: #715549;
+      font-size: .9rem;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 850px) {
+      .layout { grid-template-columns: 1fr; }
+      .ingredient-grid { grid-template-columns: repeat(4, 1fr); }
+      .customer-face { font-size: 4.5rem; }
+    }
+
+    @media (max-width: 560px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .ingredient-grid { grid-template-columns: repeat(3, 1fr); }
+      .buttons { flex-wrap: wrap; }
+      .buttons button { min-width: 45%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="game">
+    <h1>🥣 Random Bowl Builder</h1>
+    <p class="subtitle">Finish every random order within 40 seconds and earn $5!</p>
+
+    <section class="stats">
+      <div class="stat">Money<strong id="money">$0</strong></div>
+      <div class="stat">Orders<strong id="orders">0</strong></div>
+      <div class="stat">Streak<strong id="streak">0</strong></div>
+      <div class="stat">Time<strong id="timer">40</strong></div>
+    </section>
+
+    <section class="layout">
+      <aside class="panel customer">
+        <h2>Customer Order</h2>
+        <div class="customer-face" id="customerFace">🧑</div>
+
+        <div class="order-card">
+          <div id="orderName">Loading order...</div>
+          <ul id="orderList"></ul>
+        </div>
+
+        <p class="help">
+          Match every ingredient exactly. Correct bowls earn $5 and immediately start another order.
+        </p>
+      </aside>
+
+      <section class="panel kitchen">
+        <h2>Your Food Bowl</h2>
+
+        <div class="bowl-area" id="bowlArea">
+          <div class="bowl" id="bowl">
+            <div class="empty" id="emptyMessage">Drop ingredients here</div>
+          </div>
+        </div>
+
+        <div class="bowl-items" id="bowlItems">Your bowl is empty.</div>
+
+        <div class="buttons">
+          <button type="button" id="clearBtn">Clear</button>
+          <button type="button" id="serveBtn">Serve Bowl</button>
+          <button type="button" id="skipBtn">Skip Order</button>
+        </div>
+
+        <div class="message" id="message" aria-live="polite">
+          Drag ingredients into the bowl or tap them on mobile.
+        </div>
+      </section>
+
+      <aside class="panel">
+        <h2>Ingredients</h2>
+        <div class="ingredient-grid" id="ingredientGrid"></div>
+        <p class="help">You can add the same ingredient more than once, but extra ingredients make the bowl incorrect.</p>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const ingredients = {
+      rice:      { name: "Rice", emoji: "🍚" },
+      noodles:   { name: "Noodles", emoji: "🍜" },
+      lettuce:   { name: "Lettuce", emoji: "🥬" },
+      chicken:   { name: "Chicken", emoji: "🍗" },
+      beef:      { name: "Beef", emoji: "🥩" },
+      shrimp:    { name: "Shrimp", emoji: "🦐" },
+      tofu:      { name: "Tofu", emoji: "🧊" },
+      egg:       { name: "Egg", emoji: "🥚" },
+      broccoli:  { name: "Broccoli", emoji: "🥦" },
+      carrot:    { name: "Carrot", emoji: "🥕" },
+      corn:      { name: "Corn", emoji: "🌽" },
+      cucumber:  { name: "Cucumber", emoji: "🥒" },
+      mushroom:  { name: "Mushroom", emoji: "🍄" },
+      avocado:   { name: "Avocado", emoji: "🥑" },
+      cheese:    { name: "Cheese", emoji: "🧀" },
+      teriyaki:  { name: "Teriyaki", emoji: "🍯" },
+      soy:       { name: "Soy Sauce", emoji: "🍶" },
+      spicyMayo: { name: "Spicy Mayo", emoji: "🌶️" }
+    };
+
+    const bases = ["rice", "noodles", "lettuce"];
+    const proteins = ["chicken", "beef", "shrimp", "tofu", "egg"];
+    const vegetables = ["broccoli", "carrot", "corn", "cucumber", "mushroom", "avocado"];
+    const toppings = ["cheese", "egg", "avocado"];
+    const sauces = ["teriyaki", "soy", "spicyMayo"];
+    const customers = ["🧑", "👩", "👨", "👧", "👦", "🧔", "👵", "👨‍🍳"];
+
+    let currentOrder = [];
+    let currentOrderName = "";
+    let bowlContents = [];
+    let money = 0;
+    let completedOrders = 0;
+    let streak = 0;
+    let timeLeft = 40;
+    let orderLocked = false;
+
+    const ingredientGrid = document.getElementById("ingredientGrid");
+    const bowlArea = document.getElementById("bowlArea");
+    const bowl = document.getElementById("bowl");
+    const emptyMessage = document.getElementById("emptyMessage");
+    const bowlItems = document.getElementById("bowlItems");
+    const orderName = document.getElementById("orderName");
+    const orderList = document.getElementById("orderList");
+    const customerFace = document.getElementById("customerFace");
+    const message = document.getElementById("message");
+    const moneyElement = document.getElementById("money");
+    const ordersElement = document.getElementById("orders");
+    const streakElement = document.getElementById("streak");
+    const timerElement = document.getElementById("timer");
+
+    function randomItem(array) {
+      return array[Math.floor(Math.random() * array.length)];
+    }
+
+    function randomUniqueItems(array, amount) {
+      const shuffled = [...array].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, amount);
+    }
+
+    function makeRandomOrder() {
+      const base = randomItem(bases);
+      const protein = randomItem(proteins);
+      const vegetableCount = Math.random() < 0.5 ? 2 : 3;
+      const selectedVegetables = randomUniqueItems(vegetables, vegetableCount);
+      const sauce = randomItem(sauces);
+
+      currentOrder = [base, protein, ...selectedVegetables, sauce];
+
+      if (Math.random() < 0.35) {
+        const topping = randomItem(toppings);
+        if (!currentOrder.includes(topping)) {
+          currentOrder.splice(currentOrder.length - 1, 0, topping);
+        }
+      }
+
+      currentOrderName = `${ingredients[protein].name} ${ingredients[base].name} Bowl`;
+    }
+
+    function startNewOrder(reason = "") {
+      makeRandomOrder();
+      bowlContents = [];
+      timeLeft = 40;
+      orderLocked = false;
+
+      customerFace.textContent = randomItem(customers);
+      orderName.textContent = currentOrderName;
+      orderList.innerHTML = "";
+
+      currentOrder.forEach(id => {
+        const item = document.createElement("li");
+        item.textContent = `${ingredients[id].emoji} ${ingredients[id].name}`;
+        orderList.appendChild(item);
+      });
+
+      renderBowl();
+      updateStats();
+
+      message.className = "message";
+      message.textContent = reason || "A new random order is ready!";
+    }
+
+    function createIngredientButtons() {
+      ingredientGrid.innerHTML = "";
+
+      Object.entries(ingredients).forEach(([id, ingredient]) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "ingredient";
+        button.draggable = true;
+        button.dataset.id = id;
+        button.innerHTML = `
+          <span class="emoji">${ingredient.emoji}</span>
+          <span class="label">${ingredient.name}</span>
+        `;
+
+        button.addEventListener("click", () => addIngredient(id));
+
+        button.addEventListener("dragstart", event => {
+          event.dataTransfer.setData("text/plain", id);
+        });
+
+        ingredientGrid.appendChild(button);
+      });
+    }
+
+    function addIngredient(id) {
+      if (orderLocked || !ingredients[id]) return;
+
+      bowlContents.push(id);
+      renderBowl();
+
+      message.className = "message";
+      message.textContent = `${ingredients[id].emoji} ${ingredients[id].name} added.`;
+    }
+
+    function renderBowl() {
+      bowl.querySelectorAll(".food-layer").forEach(layer => layer.remove());
+      emptyMessage.style.display = bowlContents.length ? "none" : "block";
+
+      bowlContents.forEach((id, index) => {
+        const layer = document.createElement("div");
+        layer.className = "food-layer";
+        layer.style.bottom = `${20 + index * 22}px`;
+        layer.style.zIndex = index + 1;
+        layer.textContent = ingredients[id].emoji.repeat(4);
+        bowl.appendChild(layer);
+      });
+
+      bowlItems.textContent = bowlContents.length
+        ? bowlContents.map(id => `${ingredients[id].emoji} ${ingredients[id].name}`).join(" • ")
+        : "Your bowl is empty.";
+    }
+
+    function normalizeList(list) {
+      return [...list].sort();
+    }
+
+    function isCorrectBowl() {
+      if (bowlContents.length !== currentOrder.length) return false;
+
+      const expected = normalizeList(currentOrder);
+      const actual = normalizeList(bowlContents);
+
+      return expected.every((item, index) => item === actual[index]);
+    }
+
+    function serveBowl() {
+      if (orderLocked) return;
+
+      if (isCorrectBowl()) {
+        orderLocked = true;
+        money += 5;
+        completedOrders += 1;
+        streak += 1;
+        updateStats();
+
+        message.className = "message good";
+        message.textContent = "Perfect bowl! You earned $5. New order coming up!";
+
+        setTimeout(() => {
+          startNewOrder("New random order! You have 40 seconds.");
+        }, 900);
+      } else {
+        streak = 0;
+        updateStats();
+        message.className = "message bad";
+        message.textContent = "That bowl does not match the order. Fix it before time runs out!";
+      }
+    }
+
+    function clearBowl() {
+      if (orderLocked) return;
+      bowlContents = [];
+      renderBowl();
+      message.className = "message";
+      message.textContent = "The bowl has been cleared.";
+    }
+
+    function skipOrder() {
+      streak = 0;
+      startNewOrder("Order skipped. Here is another random order.");
+    }
+
+    function updateStats() {
+      moneyElement.textContent = `$${money}`;
+      ordersElement.textContent = completedOrders;
+      streakElement.textContent = streak;
+      timerElement.textContent = timeLeft;
+    }
+
+    bowlArea.addEventListener("dragover", event => {
+      event.preventDefault();
+      bowlArea.classList.add("drag-over");
+    });
+
+    bowlArea.addEventListener("dragleave", () => {
+      bowlArea.classList.remove("drag-over");
+    });
+
+    bowlArea.addEventListener("drop", event => {
+      event.preventDefault();
+      bowlArea.classList.remove("drag-over");
+      addIngredient(event.dataTransfer.getData("text/plain"));
+    });
+
+    document.getElementById("serveBtn").addEventListener("click", serveBowl);
+    document.getElementById("clearBtn").addEventListener("click", clearBowl);
+    document.getElementById("skipBtn").addEventListener("click", skipOrder);
+
+    createIngredientButtons();
+    startNewOrder();
+
+    setInterval(() => {
+      if (orderLocked) return;
+
+      timeLeft -= 1;
+      updateStats();
+
+      if (timeLeft <= 0) {
+        streak = 0;
+        startNewOrder("Time ran out! A new random order has started.");
+      }
+    }, 1000);
+  </script>
+</body>
+</html>
