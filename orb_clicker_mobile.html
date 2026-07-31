@@ -1,0 +1,2354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#07051d" />
+<title>Asian Orb Clicker</title>
+<style>
+  :root {
+    --bg1: #07051d;
+    --bg2: #12104a;
+    --panel: rgba(13, 14, 45, 0.88);
+    --cyan: #35f3ff;
+    --blue: #4b79ff;
+    --pink: #ff4eea;
+    --yellow: #ffe25b;
+    --green: #57ff8a;
+    --text: #f5f7ff;
+  }
+
+  * { box-sizing: border-box; user-select: none; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+    font-family: Arial, Helvetica, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(circle at 20% 20%, rgba(68, 62, 190, .45), transparent 32%),
+      radial-gradient(circle at 80% 25%, rgba(177, 33, 205, .25), transparent 28%),
+      linear-gradient(160deg, var(--bg2), var(--bg1) 70%);
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: .24;
+    background-image:
+      linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px);
+    background-size: 34px 34px;
+    transform: perspective(600px) rotateX(57deg) scale(1.5) translateY(18%);
+    transform-origin: center bottom;
+  }
+
+  .app {
+    width: min(1120px, 96vw);
+    margin: 0 auto;
+    padding: 18px 0 28px;
+    position: relative;
+    z-index: 1;
+  }
+
+  header {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+  }
+
+  .title {
+    font-size: clamp(28px, 5vw, 54px);
+    font-weight: 1000;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-shadow: 0 0 8px var(--cyan), 0 0 22px var(--blue);
+  }
+
+  .subtitle {
+    font-size: 13px;
+    opacity: .72;
+    margin-top: 3px;
+  }
+
+  .top-buttons { display: flex; gap: 8px; }
+
+  .music-player-host {
+    position: fixed;
+    left: -10000px;
+    top: -10000px;
+    width: 200px;
+    height: 200px;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  button {
+    font: inherit;
+    color: white;
+  }
+
+  .small-btn {
+    border: 2px solid rgba(255,255,255,.22);
+    background: rgba(255,255,255,.08);
+    border-radius: 11px;
+    padding: 9px 13px;
+    cursor: pointer;
+    transition: .18s;
+  }
+
+  .small-btn:hover {
+    transform: translateY(-2px);
+    border-color: var(--cyan);
+    box-shadow: 0 0 14px rgba(53,243,255,.25);
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr);
+    gap: 16px;
+  }
+
+  .panel {
+    border: 2px solid rgba(100, 230, 255, .22);
+    background: var(--panel);
+    border-radius: 20px;
+    box-shadow: 0 14px 42px rgba(0,0,0,.35), inset 0 0 30px rgba(53,243,255,.035);
+    backdrop-filter: blur(8px);
+  }
+
+  .game-panel {
+    min-height: 610px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 9px;
+    width: 100%;
+    z-index: 2;
+  }
+
+  .stat {
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 13px;
+    padding: 11px 8px;
+    text-align: center;
+  }
+
+  .stat strong {
+    display: block;
+    font-size: clamp(18px, 3vw, 26px);
+    color: var(--yellow);
+    text-shadow: 0 0 10px rgba(255,226,91,.45);
+  }
+
+  .stat span {
+    font-size: 11px;
+    opacity: .72;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .orb-zone {
+    flex: 1;
+    width: 100%;
+    display: grid;
+    place-items: center;
+    position: relative;
+  }
+
+  .orb-wrap {
+    position: relative;
+    width: min(320px, 70vw);
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+  }
+
+  .orb-wrap::before {
+    content: "";
+    position: absolute;
+    inset: 12%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,.07), transparent 68%);
+    filter: blur(14px);
+    animation: haloPulse 2.8s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .orbit {
+    position: absolute;
+    inset: 6%;
+    border-radius: 50%;
+    border: 2px dashed rgba(255,255,255,.18);
+    animation: spin 12s linear infinite;
+    filter: drop-shadow(0 0 10px rgba(255,255,255,.12));
+  }
+
+  .orbit::before,
+  .orbit::after {
+    content: "";
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.95);
+    box-shadow: 0 0 10px rgba(255,255,255,.9), 0 0 20px rgba(255,255,255,.35);
+  }
+
+  .orbit::before { left: 10%; top: 14%; }
+  .orbit::after { right: 9%; bottom: 16%; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @keyframes haloPulse {
+    50% { opacity: .8; transform: scale(1.04); }
+  }
+
+  .orb {
+    --orb-main: #f1e54a;
+    --orb-light: #fff8a5;
+    --orb-dark: #ceb500;
+    --orb-glow: rgba(255, 236, 95, .95);
+    --accent-angle: 0deg;
+    width: 62%;
+    aspect-ratio: 1;
+    border: 0;
+    padding: 0;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    transition: transform .08s, filter .08s;
+    animation: pulse 1.7s ease-in-out infinite;
+    -webkit-tap-highlight-color: transparent;
+    filter:
+      drop-shadow(0 0 10px var(--orb-glow))
+      drop-shadow(0 0 26px color-mix(in srgb, var(--orb-glow) 75%, white 25%));
+  }
+
+  .orb::before {
+    content: "";
+    position: absolute;
+    inset: 9%;
+    border-radius: 50%;
+    border: 5px solid rgba(255,255,255,.98);
+    background: radial-gradient(circle, rgba(255,255,255,.08), transparent 66%);
+    box-shadow:
+      0 0 5px rgba(255,255,255,.95),
+      0 0 12px rgba(255,255,255,.95),
+      0 0 30px var(--orb-glow),
+      inset 0 0 6px rgba(255,255,255,.28);
+  }
+
+  .orb::after {
+    content: "";
+    position: absolute;
+    inset: 30%;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 34% 30%, rgba(255,255,255,.95) 0 14%, transparent 15%),
+      radial-gradient(circle at 50% 52%, var(--orb-light) 0 28%, var(--orb-main) 60%, var(--orb-dark) 100%);
+    box-shadow:
+      0 0 8px rgba(255,255,255,.95),
+      0 0 18px var(--orb-glow);
+  }
+
+  .orb-accent {
+    position: absolute;
+    inset: 1%;
+    border-radius: 50%;
+    pointer-events: none;
+    background:
+      conic-gradient(
+        from var(--accent-angle),
+        transparent 0 9%,
+        rgba(255,255,255,.95) 9% 13%,
+        transparent 13% 34%,
+        rgba(255,255,255,.92) 34% 38%,
+        transparent 38% 59%,
+        rgba(255,255,255,.95) 59% 63%,
+        transparent 63% 84%,
+        rgba(255,255,255,.92) 84% 88%,
+        transparent 88% 100%
+      );
+    -webkit-mask: radial-gradient(circle, transparent 0 74%, #000 75% 82%, transparent 83%);
+            mask: radial-gradient(circle, transparent 0 74%, #000 75% 82%, transparent 83%);
+    opacity: .95;
+    animation: spin 7s linear infinite;
+    filter: drop-shadow(0 0 7px rgba(255,255,255,.85));
+  }
+
+  /* Orb appearance changes automatically with each rank. */
+  .orb.rank-spark {
+    --orb-main: #f1e54a;
+    --orb-light: #fff8a5;
+    --orb-dark: #ceb500;
+    --orb-glow: rgba(255, 236, 95, .95);
+    --accent-angle: 6deg;
+  }
+
+  .orb.rank-pulse {
+    --orb-main: #ff66df;
+    --orb-light: #ffc2f4;
+    --orb-dark: #d63cb9;
+    --orb-glow: rgba(255, 105, 227, .95);
+    --accent-angle: 24deg;
+  }
+
+  .orb.rank-rift {
+    --orb-main: #ff4a4a;
+    --orb-light: #ffabab;
+    --orb-dark: #d92525;
+    --orb-glow: rgba(255, 87, 87, .95);
+    --accent-angle: 40deg;
+  }
+
+  .orb.rank-nova {
+    --orb-main: #61f4ff;
+    --orb-light: #c2feff;
+    --orb-dark: #23c9d2;
+    --orb-glow: rgba(110, 245, 255, .98);
+    --accent-angle: 60deg;
+  }
+
+  .orb.rank-cosmic {
+    --orb-main: #57f85f;
+    --orb-light: #c1ffc5;
+    --orb-dark: #1fcf33;
+    --orb-glow: rgba(92, 255, 108, .98);
+    --accent-angle: 88deg;
+  }
+
+  .orb.rank-cosmic .orb-accent {
+    inset: -4%;
+    animation-duration: 5.5s;
+    background:
+      conic-gradient(
+        from 0deg,
+        transparent 0 7%,
+        rgba(255,255,255,.98) 7% 12%,
+        transparent 12% 25%,
+        rgba(255,255,255,.98) 25% 30%,
+        transparent 30% 57%,
+        rgba(255,255,255,.98) 57% 62%,
+        transparent 62% 75%,
+        rgba(255,255,255,.98) 75% 80%,
+        transparent 80% 100%
+      );
+    -webkit-mask: radial-gradient(circle, transparent 0 78%, #000 79% 85%, transparent 86%);
+            mask: radial-gradient(circle, transparent 0 78%, #000 79% 85%, transparent 86%);
+  }
+
+  .orb:hover {
+    filter:
+      brightness(1.12)
+      drop-shadow(0 0 12px var(--orb-glow))
+      drop-shadow(0 0 34px color-mix(in srgb, var(--orb-glow) 85%, white 15%));
+  }
+
+  .orb:active, .orb.clicked { transform: scale(.89); }
+
+  @keyframes pulse {
+    50% {
+      filter:
+        brightness(1.08)
+        drop-shadow(0 0 12px var(--orb-glow))
+        drop-shadow(0 0 36px color-mix(in srgb, var(--orb-glow) 80%, white 20%));
+    }
+  }
+
+  .click-text {
+    position: absolute;
+    pointer-events: none;
+    font-weight: 1000;
+    font-size: 24px;
+    color: white;
+    text-shadow: 0 0 8px var(--cyan), 0 0 18px var(--blue);
+    animation: floatUp .9s ease-out forwards;
+    z-index: 5;
+  }
+
+  @keyframes floatUp {
+    0% { transform: translate(-50%, -20%) scale(.75); opacity: 1; }
+    100% { transform: translate(-50%, -150px) scale(1.25); opacity: 0; }
+  }
+
+  .particle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: burst .65s ease-out forwards;
+    box-shadow: 0 0 10px currentColor;
+    z-index: 4;
+  }
+
+  @keyframes burst {
+    to { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+  }
+
+  .combo {
+    height: 38px;
+    font-size: 25px;
+    font-weight: 900;
+    color: var(--pink);
+    text-shadow: 0 0 12px var(--pink);
+  }
+
+  .hint {
+    font-size: 13px;
+    opacity: .65;
+    text-align: center;
+    margin-top: 4px;
+  }
+
+  .mechanics {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .ability {
+    position: relative;
+    min-height: 68px;
+    border: 2px solid rgba(255,255,255,.15);
+    border-radius: 13px;
+    background: rgba(255,255,255,.055);
+    padding: 10px;
+    overflow: hidden;
+  }
+
+  .ability-title {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-weight: 900;
+    font-size: 13px;
+  }
+
+  .key {
+    min-width: 27px;
+    padding: 3px 7px;
+    border: 1px solid rgba(255,255,255,.55);
+    border-bottom-width: 3px;
+    border-radius: 6px;
+    background: rgba(255,255,255,.14);
+    text-align: center;
+    font-size: 12px;
+  }
+
+  .ability-status {
+    position: relative;
+    z-index: 2;
+    margin-top: 7px;
+    font-size: 11px;
+    opacity: .75;
+  }
+
+  .charge-track {
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 8px;
+    background: rgba(255,255,255,.07);
+  }
+
+  .charge-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #35f3ff, #ff4eea);
+    box-shadow: 0 0 12px #35f3ff;
+    transition: width .15s;
+  }
+
+  .ability.ready {
+    border-color: #ffe25b;
+    box-shadow: 0 0 18px rgba(255,226,91,.24);
+  }
+
+  .ability.active {
+    border-color: #35f3ff;
+    box-shadow: 0 0 22px rgba(53,243,255,.34);
+    animation: abilityPulse .8s ease-in-out infinite alternate;
+  }
+
+  @keyframes abilityPulse {
+    to { filter: brightness(1.25); }
+  }
+
+  .bonus-orb {
+    position: absolute;
+    width: 66px;
+    height: 66px;
+    border: 4px solid white;
+    border-radius: 50%;
+    z-index: 12;
+    cursor: pointer;
+    background:
+      radial-gradient(circle at 32% 28%, white 0 8%, transparent 9%),
+      radial-gradient(circle, #fff8a6 0 24%, #ffd928 48%, #ff8c00 75%, #8a3700 100%);
+    box-shadow:
+      0 0 10px white,
+      0 0 24px #ffe25b,
+      0 0 50px rgba(255,142,0,.9);
+    animation: bonusFloat .72s ease-in-out infinite alternate, bonusSpin 3s linear infinite;
+  }
+
+  .bonus-orb::before,
+  .bonus-orb::after {
+    content: "";
+    position: absolute;
+    inset: -12px;
+    border: 4px dashed rgba(255,255,255,.9);
+    border-radius: 50%;
+  }
+
+  .bonus-orb::after {
+    inset: -20px;
+    border-width: 2px;
+    opacity: .55;
+  }
+
+  @keyframes bonusFloat {
+    to { transform: translateY(-9px) scale(1.06); }
+  }
+
+  @keyframes bonusSpin {
+    to { rotate: 360deg; }
+  }
+
+  .overcharged-orb {
+    animation: pulse .5s ease-in-out infinite, overchargeShake .12s linear infinite alternate !important;
+  }
+
+  @keyframes overchargeShake {
+    to { translate: 1.5px -1px; }
+  }
+
+  .smash-flash {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 11;
+    background: radial-gradient(circle, rgba(255,255,255,.9), rgba(255,226,91,.42) 22%, transparent 58%);
+    animation: smashFlash .5s ease-out forwards;
+  }
+
+  @keyframes smashFlash {
+    from { opacity: 1; transform: scale(.2); }
+    to { opacity: 0; transform: scale(1.7); }
+  }
+
+  @media (max-width: 520px) {
+    .mechanics { grid-template-columns: 1fr; }
+  }
+
+  .bbb-ability {
+    color: white;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .bbb-ability:hover:not(:disabled) {
+    border-color: #ff593d;
+    box-shadow: 0 0 18px rgba(255,70,40,.26);
+    transform: translateY(-1px);
+  }
+
+  .bbb-ability.active {
+    border-color: #ff3528;
+    background: rgba(125, 15, 8, .28);
+    box-shadow: 0 0 25px rgba(255,53,40,.48);
+    animation: bbbCardPulse .25s linear infinite alternate;
+  }
+
+  @keyframes bbbCardPulse {
+    to { filter: brightness(1.45); transform: scale(1.015); }
+  }
+
+  body.bbb-running {
+    overflow: hidden;
+  }
+
+  body.bbb-running .app {
+    animation: bbbScreenShake .09s linear infinite alternate;
+  }
+
+  @keyframes bbbScreenShake {
+    0%   { transform: translate(-6px, 4px) rotate(-.35deg); }
+    25%  { transform: translate(7px, -4px) rotate(.4deg); }
+    50%  { transform: translate(-3px, -7px) rotate(-.25deg); }
+    75%  { transform: translate(5px, 6px) rotate(.3deg); }
+    100% { transform: translate(-7px, -2px) rotate(-.4deg); }
+  }
+
+  .bbb-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    pointer-events: none;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(255,255,255,.93) 0 3%, rgba(255,225,63,.72) 4% 10%, rgba(255,75,20,.42) 15%, transparent 42%),
+      repeating-conic-gradient(from 0deg at 50% 50%, rgba(255,242,115,.22) 0 3deg, transparent 3deg 11deg);
+    animation: bbbOverlayFlash .18s linear infinite alternate;
+  }
+
+  .bbb-overlay::before,
+  .bbb-overlay::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 36vmin;
+    height: 36vmin;
+    border: 9px solid rgba(255,255,255,.92);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow:
+      0 0 20px white,
+      0 0 55px #ffe25b,
+      0 0 110px #ff3c20;
+    animation: bbbShockwave .72s ease-out infinite;
+  }
+
+  .bbb-overlay::after {
+    animation-delay: .36s;
+  }
+
+  @keyframes bbbOverlayFlash {
+    from { opacity: .68; filter: saturate(1.1); }
+    to { opacity: .94; filter: saturate(1.8) brightness(1.18); }
+  }
+
+  @keyframes bbbShockwave {
+    from { transform: translate(-50%, -50%) scale(.15); opacity: 1; }
+    to { transform: translate(-50%, -50%) scale(4.3); opacity: 0; }
+  }
+
+  .bbb-title {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 100%;
+    transform: translate(-50%, -50%) rotate(-4deg);
+    text-align: center;
+    color: white;
+    font-weight: 1000;
+    font-size: clamp(42px, 10vw, 130px);
+    letter-spacing: 4px;
+    line-height: .88;
+    text-shadow:
+      5px 5px 0 #8f1208,
+      -4px -4px 0 #ffca28,
+      0 0 14px white,
+      0 0 42px #ff2c19;
+    animation: bbbTitlePunch .24s ease-in-out infinite alternate;
+  }
+
+  @keyframes bbbTitlePunch {
+    from { transform: translate(-50%, -50%) rotate(-5deg) scale(.94); }
+    to { transform: translate(-50%, -50%) rotate(4deg) scale(1.08); }
+  }
+
+  .bbb-debris {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: var(--size);
+    height: calc(var(--size) * .55);
+    border-radius: 3px;
+    background: var(--debris-color);
+    box-shadow: 0 0 10px var(--debris-color);
+    transform: translate(-50%, -50%) rotate(var(--start-rot));
+    animation: bbbDebrisFly var(--duration) ease-out infinite;
+    animation-delay: var(--delay);
+  }
+
+  @keyframes bbbDebrisFly {
+    0% {
+      transform: translate(-50%, -50%) rotate(var(--start-rot)) scale(.2);
+      opacity: 0;
+    }
+    8% { opacity: 1; }
+    100% {
+      transform:
+        translate(
+          calc(-50% + var(--dx)),
+          calc(-50% + var(--dy))
+        )
+        rotate(var(--end-rot))
+        scale(1.2);
+      opacity: 0;
+    }
+  }
+
+  @media (max-width: 850px) {
+    .mechanics { grid-template-columns: 1fr 1fr; }
+    .bbb-ability { grid-column: 1 / -1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    body.bbb-running .app { animation-duration: .25s; }
+    .bbb-debris { display: none; }
+  }
+
+  .heat-system {
+    width: 100%;
+    margin-top: 10px;
+    padding: 11px 12px 13px;
+    border: 2px solid rgba(255,255,255,.14);
+    border-radius: 13px;
+    background: rgba(255,255,255,.05);
+    transition: border-color .15s, box-shadow .15s, filter .15s;
+  }
+
+  .heat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  .heat-status {
+    font-size: 11px;
+    opacity: .76;
+    margin-top: 5px;
+  }
+
+  .heat-track {
+    height: 13px;
+    margin-top: 8px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255,255,255,.08);
+    box-shadow: inset 0 0 7px rgba(0,0,0,.45);
+  }
+
+  .heat-fill {
+    width: 0%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #35f3ff, #ffe25b 58%, #ff382e);
+    box-shadow: 0 0 12px rgba(255,226,91,.65);
+    transition: width .1s linear;
+  }
+
+  .heat-system.warm {
+    border-color: rgba(255,226,91,.65);
+  }
+
+  .heat-system.hot {
+    border-color: #ff6a32;
+    box-shadow: 0 0 18px rgba(255,74,35,.28);
+    animation: heatWarning .45s ease-in-out infinite alternate;
+  }
+
+  .heat-system.overheated {
+    border-color: #ff2d2d;
+    box-shadow: 0 0 24px rgba(255,45,45,.45);
+    background: rgba(100,8,8,.22);
+  }
+
+  @keyframes heatWarning {
+    to { filter: brightness(1.18); }
+  }
+
+  .orb.redline-orb {
+    animation: pulse .48s ease-in-out infinite, redlineShake .1s linear infinite alternate;
+  }
+
+  .orb.overheated-orb {
+    cursor: not-allowed;
+    animation: overheatJitter .14s linear infinite alternate !important;
+    filter:
+      grayscale(.42)
+      brightness(.62)
+      drop-shadow(0 0 11px #ff2d2d)
+      drop-shadow(0 0 30px rgba(255,60,25,.75)) !important;
+  }
+
+  @keyframes redlineShake {
+    to { translate: 1px -1px; }
+  }
+
+  @keyframes overheatJitter {
+    to { transform: translate(2px, -1px) rotate(.8deg); }
+  }
+
+  .orb-wrap.overheated::after {
+    content: "";
+    position: absolute;
+    z-index: 20;
+    left: 46%;
+    top: 14%;
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    pointer-events: none;
+    background: rgba(225,225,225,.6);
+    box-shadow:
+      22px 13px 0 5px rgba(210,210,210,.45),
+      -20px 18px 0 2px rgba(235,235,235,.38);
+    filter: blur(3px);
+    animation: smokeRise 1.15s ease-out infinite;
+  }
+
+  @keyframes smokeRise {
+    from { transform: translateY(10px) scale(.55); opacity: .1; }
+    55% { opacity: .75; }
+    to { transform: translateY(-55px) scale(1.55); opacity: 0; }
+  }
+
+  .shop {
+    padding: 17px;
+    max-height: 610px;
+    overflow-y: auto;
+  }
+
+  .shop h2 {
+    margin: 2px 0 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 24px;
+  }
+
+  .upgrade {
+    width: 100%;
+    text-align: left;
+    padding: 12px;
+    margin: 9px 0;
+    border: 2px solid rgba(255,255,255,.13);
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.035));
+    cursor: pointer;
+    transition: .17s;
+  }
+
+  .upgrade:hover:not(:disabled) {
+    transform: translateY(-2px);
+    border-color: var(--cyan);
+    box-shadow: 0 0 18px rgba(53,243,255,.22);
+  }
+
+  .upgrade:disabled {
+    cursor: not-allowed;
+    opacity: .48;
+  }
+
+  .up-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-weight: 900;
+  }
+
+  .up-cost { color: var(--yellow); }
+  .up-desc { font-size: 12px; opacity: .72; margin-top: 4px; line-height: 1.35; }
+
+  .progress-box {
+    margin-top: 14px;
+    padding: 12px;
+    border-radius: 13px;
+    background: rgba(255,255,255,.055);
+    border: 1px solid rgba(255,255,255,.1);
+  }
+
+  .bar {
+    height: 13px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.09);
+    overflow: hidden;
+    margin-top: 7px;
+  }
+
+  .bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--cyan), var(--pink));
+    box-shadow: 0 0 12px var(--cyan);
+    transition: width .2s;
+  }
+
+  .footer-note {
+    margin-top: 9px;
+    font-size: 11px;
+    opacity: .52;
+    text-align: center;
+  }
+
+  .achievement {
+    position: fixed;
+    left: 50%;
+    top: 18px;
+    transform: translate(-50%, -120px);
+    width: min(430px, 90vw);
+    padding: 14px 18px;
+    background: rgba(10, 9, 38, .96);
+    border: 2px solid var(--yellow);
+    border-radius: 14px;
+    box-shadow: 0 0 25px rgba(255,226,91,.38);
+    z-index: 20;
+    text-align: center;
+    font-weight: 900;
+    transition: .35s;
+  }
+
+  .achievement.show { transform: translate(-50%, 0); }
+
+  @media (max-width: 760px) {
+    .layout { grid-template-columns: 1fr; }
+    .game-panel { min-height: 560px; }
+    .shop { max-height: none; }
+  }
+
+  /* Mobile and tablet controls */
+  html {
+    touch-action: manipulation;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  button,
+  .orb,
+  .upgrade,
+  .ability {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .ability-action {
+    width: 100%;
+    color: white;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .ability-action:active,
+  .bbb-ability:active,
+  .upgrade:active,
+  .small-btn:active,
+  .mobile-nav-btn:active {
+    transform: scale(.97);
+  }
+
+  .mobile-nav {
+    display: none;
+  }
+
+  @media (max-width: 760px) {
+    body {
+      min-height: 100svh;
+      padding-bottom: calc(82px + env(safe-area-inset-bottom));
+      overscroll-behavior-y: contain;
+    }
+
+    body::before {
+      opacity: .14;
+      background-size: 28px 28px;
+    }
+
+    .app {
+      width: 100%;
+      padding:
+        calc(9px + env(safe-area-inset-top))
+        10px
+        12px;
+    }
+
+    header {
+      display: block;
+      margin-bottom: 9px;
+      text-align: center;
+    }
+
+    .title {
+      font-size: clamp(26px, 9vw, 42px);
+      line-height: 1;
+      letter-spacing: 1px;
+    }
+
+    .subtitle {
+      margin-top: 6px;
+      font-size: 12px;
+    }
+
+    .top-buttons {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      width: 100%;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .small-btn {
+      min-height: 46px;
+      padding: 7px 5px;
+      border-radius: 10px;
+      font-size: 11px;
+      line-height: 1.15;
+    }
+
+    .layout {
+      display: block;
+    }
+
+    .panel {
+      border-radius: 16px;
+    }
+
+    .game-panel {
+      min-height: 0;
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    .stats {
+      gap: 6px;
+    }
+
+    .stat {
+      min-width: 0;
+      padding: 8px 3px;
+      border-radius: 10px;
+    }
+
+    .stat strong {
+      overflow: hidden;
+      font-size: clamp(17px, 5vw, 23px);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .stat span {
+      font-size: 9px;
+      letter-spacing: .5px;
+    }
+
+    .orb-zone {
+      min-height: min(310px, 45svh);
+    }
+
+    .orb-wrap {
+      width: min(310px, 88vw);
+    }
+
+    .orb {
+      width: 70%;
+    }
+
+    .combo {
+      height: 31px;
+      font-size: 20px;
+    }
+
+    .hint {
+      padding: 0 5px;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .mechanics {
+      grid-template-columns: 1fr !important;
+      gap: 7px;
+      margin-top: 9px;
+    }
+
+    .ability,
+    .bbb-ability {
+      width: 100%;
+      min-height: 62px;
+      padding: 9px 10px;
+      color: white;
+      text-align: left;
+    }
+
+    .ability-title {
+      font-size: 14px;
+    }
+
+    .ability-status {
+      font-size: 11px;
+      line-height: 1.25;
+    }
+
+    .key {
+      min-width: 39px;
+      padding: 4px 6px;
+      font-size: 0;
+    }
+
+    .key::after {
+      content: "TAP";
+      font-size: 10px;
+    }
+
+    .heat-system {
+      margin-top: 8px;
+      padding: 9px 10px 11px;
+    }
+
+    .heat-header {
+      font-size: 12px;
+    }
+
+    .heat-status {
+      font-size: 10px;
+      line-height: 1.25;
+    }
+
+    .shop {
+      display: none;
+      max-height: none;
+      padding: 12px;
+      overflow: visible;
+    }
+
+    .shop h2 {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      margin: -12px -12px 8px;
+      padding: 13px 12px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+      background: rgba(13,14,45,.97);
+      font-size: 20px;
+    }
+
+    .upgrade {
+      min-height: 64px;
+      margin: 7px 0;
+      padding: 10px;
+    }
+
+    .up-title {
+      align-items: flex-start;
+      font-size: 13px;
+    }
+
+    .up-desc {
+      font-size: 11px;
+    }
+
+    body.mobile-view-shop #gamePanel {
+      display: none;
+    }
+
+    body.mobile-view-shop #shopPanel {
+      display: block;
+    }
+
+    body.mobile-view-play #gamePanel {
+      display: flex;
+    }
+
+    body.mobile-view-play #shopPanel {
+      display: none;
+    }
+
+    .mobile-nav {
+      position: fixed;
+      z-index: 950;
+      left: 10px;
+      right: 10px;
+      bottom: max(8px, env(safe-area-inset-bottom));
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 7px;
+      border: 2px solid rgba(100,230,255,.28);
+      border-radius: 16px;
+      background: rgba(8,8,30,.94);
+      box-shadow: 0 10px 30px rgba(0,0,0,.55);
+      backdrop-filter: blur(12px);
+    }
+
+    .mobile-nav-btn {
+      min-height: 48px;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 11px;
+      background: rgba(255,255,255,.07);
+      color: white;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .mobile-nav-btn.active {
+      border-color: var(--cyan);
+      background: rgba(53,243,255,.16);
+      box-shadow: 0 0 15px rgba(53,243,255,.22);
+    }
+
+    .achievement {
+      top: max(8px, env(safe-area-inset-top));
+      width: calc(100vw - 20px);
+      padding: 11px 12px;
+      font-size: 13px;
+    }
+
+    .bonus-orb {
+      width: 58px;
+      height: 58px;
+    }
+
+    .bbb-title {
+      font-size: clamp(38px, 17vw, 90px);
+    }
+  }
+
+  @media (max-width: 380px) {
+    .top-buttons {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    #resetBtn {
+      grid-column: 1 / -1;
+    }
+
+    .orb-zone {
+      min-height: 270px;
+    }
+
+    .orb-wrap {
+      width: min(275px, 92vw);
+    }
+  }
+
+  @media (orientation: landscape) and (max-height: 560px) and (max-width: 950px) {
+    body {
+      padding-bottom: calc(70px + env(safe-area-inset-bottom));
+    }
+
+    .app {
+      padding-top: 5px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      text-align: left;
+    }
+
+    .title {
+      font-size: 25px;
+    }
+
+    .subtitle {
+      display: none;
+    }
+
+    .top-buttons {
+      width: auto;
+      margin-top: 0;
+    }
+
+    .game-panel {
+      display: grid;
+      grid-template-columns: minmax(240px, .9fr) minmax(310px, 1.1fr);
+      grid-template-rows: auto auto auto;
+      gap: 7px 12px;
+      align-items: center;
+    }
+
+    .stats {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .orb-zone {
+      grid-column: 1;
+      grid-row: 2 / 4;
+      min-height: 230px;
+    }
+
+    .orb-wrap {
+      width: min(245px, 42vw);
+    }
+
+    .combo,
+    .hint {
+      display: none;
+    }
+
+    .mechanics {
+      grid-column: 2;
+      grid-row: 1 / 3;
+      margin-top: 0;
+    }
+
+    .heat-system {
+      grid-column: 2;
+      grid-row: 3;
+      margin-top: 0;
+    }
+
+    .mobile-nav {
+      min-height: 54px;
+    }
+  }
+
+</style>
+</head>
+<body>
+<div class="achievement" id="achievement"></div>
+
+<main class="app">
+  <header>
+    <div>
+      <div class="title">Asian Orb Clicker</div>
+      <div class="subtitle">Build ur Asian empire.</div>
+    </div>
+    <div class="top-buttons">
+      <button class="small-btn" id="musicBtn">🎵 Start Music</button>
+      <button class="small-btn" id="soundBtn">🔊 Click Sound: On</button>
+      <button class="small-btn" id="resetBtn">Reset</button>
+    </div>
+  </header>
+
+  <section class="layout">
+    <div class="panel game-panel" id="gamePanel">
+      <div class="stats">
+        <div class="stat"><strong id="orbs">0</strong><span>Orbs</span></div>
+        <div class="stat"><strong id="perClick">1</strong><span>Per Click</span></div>
+        <div class="stat"><strong id="perSecond">0</strong><span>Per Second</span></div>
+      </div>
+
+      <div class="orb-zone" id="orbZone">
+        <div class="orb-wrap" id="orbWrap">
+          <div class="orbit"></div>
+          <button class="orb rank-spark" id="orbButton" aria-label="Click the neon orb" title="Spark Orb">
+            <span class="orb-accent"></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="combo" id="combo"></div>
+      <div class="hint">Tap the orb to click • Tap abilities below • Keyboard: SPACE, Q, E, R</div>
+
+      <div class="mechanics">
+        <button type="button" class="ability ability-action" id="smashAbility">
+          <div class="ability-title">
+            <span>💥 Bang</span>
+            <span class="key">Q</span>
+          </div>
+          <div class="ability-status" id="smashStatus">Ready: 25× power • 8.00s cooldown</div>
+        </button>
+
+        <button type="button" class="ability ability-action" id="overchargeAbility">
+          <div class="ability-title">
+            <span>⚡ Bing Cha Ling</span>
+            <span class="key">E</span>
+          </div>
+          <div class="ability-status" id="chargeText">Charge: 0%</div>
+          <div class="charge-track"><div class="charge-fill" id="chargeFill"></div></div>
+        </button>
+
+
+        <button type="button" class="ability bbb-ability" id="bbbAbility">
+          <div class="ability-title">
+            <span>💣 Bang Bang Bang</span>
+            <span class="key">R</span>
+          </div>
+          <div class="ability-status" id="bbbStatus">Ready: 100 CPS for 5 seconds</div>
+        </button>
+      </div>
+
+      <div class="heat-system" id="heatSystem">
+        <div class="heat-header">
+          <span>🌡️ Orb Heat</span>
+          <span id="heatNumber">0 / 100</span>
+        </div>
+        <div class="heat-status" id="heatStatus">Cool — heat falls while you stop clicking</div>
+        <div class="heat-track"><div class="heat-fill" id="heatFill"></div></div>
+      </div>
+    </div>
+
+    <aside class="panel shop" id="shopPanel">
+      <h2>Upgrade Shop</h2>
+
+      <button class="upgrade" id="powerUpgrade">
+        <div class="up-title">
+          <span>⚡ Orb Power <small id="powerLevel">Lv. 0</small></span>
+          <span class="up-cost" id="powerCost">10</span>
+        </div>
+        <div class="up-desc">Adds more orbs to every click.</div>
+      </button>
+
+      <button class="upgrade" id="droneUpgrade">
+        <div class="up-title">
+          <span>🤖 Orb Drone <small id="droneLevel">Lv. 0</small></span>
+          <span class="up-cost" id="droneCost">50</span>
+        </div>
+        <div class="up-desc">Automatically collects orbs every second.</div>
+      </button>
+
+      <button class="upgrade" id="reactorUpgrade">
+        <div class="up-title">
+          <span>☢️ Neon Reactor <small id="reactorLevel">Lv. 0</small></span>
+          <span class="up-cost" id="reactorCost">250</span>
+        </div>
+        <div class="up-desc">Greatly boosts automatic orb production.</div>
+      </button>
+
+      <button class="upgrade" id="critUpgrade">
+        <div class="up-title">
+          <span>💥 Critical Spark <small id="critLevel">Lv. 0</small></span>
+          <span class="up-cost" id="critCost">400</span>
+        </div>
+        <div class="up-desc">Increases the chance of a 5× critical click.</div>
+      </button>
+
+      <button class="upgrade" id="multUpgrade">
+        <div class="up-title">
+          <span>🌌 Orb Multiplier <small id="multLevel">Lv. 0</small></span>
+          <span class="up-cost" id="multCost">1200</span>
+        </div>
+        <div class="up-desc">Multiplies all click and automatic income.</div>
+      </button>
+
+
+      <button class="upgrade" id="smashUpgrade">
+        <div class="up-title">
+          <span>🔨 Bang Core <small id="smashLevel">Lv. 0</small></span>
+          <span class="up-cost" id="smashCost">750</span>
+        </div>
+        <div class="up-desc">
+          Adds 15× click power to Bang and reduces its cooldown.
+        </div>
+      </button>
+
+
+      <button class="upgrade" id="heatCapacityUpgrade">
+        <div class="up-title">
+          <span>🧊 Heat Capacity <small id="heatCapacityLevel">Lv. 0</small></span>
+          <span class="up-cost" id="heatCapacityCost">900</span>
+        </div>
+        <div class="up-desc">
+          Adds 40 maximum heat capacity before the orb overheats.
+        </div>
+      </button>
+
+      <button class="upgrade" id="coolingUpgrade">
+        <div class="up-title">
+          <span>🌀 Cooling Fans <small id="coolingLevel">Lv. 0</small></span>
+          <span class="up-cost" id="coolingCost">1100</span>
+        </div>
+        <div class="up-desc">
+          Makes the orb cool faster while idle and while overheated.
+        </div>
+      </button>
+
+      <button class="upgrade" id="heatEfficiencyUpgrade">
+        <div class="up-title">
+          <span>🛡️ Thermal Shield <small id="heatEfficiencyLevel">Lv. 0</small></span>
+          <span class="up-cost" id="heatEfficiencyCost">1500</span>
+        </div>
+        <div class="up-desc">
+          Reduces heat gained from clicks, critical hits, and Bang.
+        </div>
+      </button>
+
+      <button class="upgrade" id="rebootUpgrade">
+        <div class="up-title">
+          <span>🔧 Emergency Reboot <small id="rebootLevel">Lv. 0</small></span>
+          <span class="up-cost" id="rebootCost">2200</span>
+        </div>
+        <div class="up-desc">
+          Reduces how long the orb remains locked after overheating.
+        </div>
+      </button>
+
+      <button class="upgrade" id="redlineUpgrade">
+        <div class="up-title">
+          <span>🔥 Redline Core <small id="redlineLevel">Lv. 0</small></span>
+          <span class="up-cost" id="redlineCost">3000</span>
+        </div>
+        <div class="up-desc">
+          Makes the high-heat Redline manual-click bonus stronger.
+        </div>
+      </button>
+
+      <div class="progress-box">
+        <strong>Next Rank: <span id="rankName">Spark</span></strong>
+        <div class="bar"><div class="bar-fill" id="rankBar"></div></div>
+        <div class="up-desc" id="rankText">0 / 100 total orbs</div>
+      </div>
+
+      <div class="footer-note">Your progress saves automatically in this browser.</div>
+    </aside>
+  </section>
+
+  <nav class="mobile-nav" aria-label="Mobile game navigation">
+    <button type="button" class="mobile-nav-btn active" id="mobilePlayBtn">🔵 Play</button>
+    <button type="button" class="mobile-nav-btn" id="mobileShopBtn">🛒 Shop</button>
+  </nav>
+</main>
+
+<div class="music-player-host" id="musicPlayerHost" aria-hidden="true"></div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+
+  const defaultState = {
+    orbs: 0,
+    total: 0,
+    powerLevel: 0,
+    droneLevel: 0,
+    reactorLevel: 0,
+    critLevel: 0,
+    multLevel: 0,
+    smashLevel: 0,
+    heatCapacityLevel: 0,
+    coolingLevel: 0,
+    heatEfficiencyLevel: 0,
+    rebootLevel: 0,
+    redlineLevel: 0,
+    charge: 0,
+    heat: 0,
+    music: true,
+    sound: true
+  };
+
+  let state = load();
+  let combo = 0;
+  let comboTimer = null;
+  let audioCtx = null;
+  const minecraftClickUrl = "https://www.myinstants.com/media/sounds/minecraft_click.mp3";
+  const minecraftClickAudio = new Audio();
+  minecraftClickAudio.preload = "auto";
+  minecraftClickAudio.volume = 0.55;
+  let minecraftClickInitialized = false;
+
+  const backgroundMusicVideoId = "9XBASNeidc4";
+  let musicStarted = false;
+  let lastSave = Date.now();
+  let overchargeUntil = 0;
+  let smashReadyAt = 0;
+  let bangBangBangUntil = 0;
+  let bangBangBangReadyAt = 0;
+  let overheatedUntil = 0;
+  let lastHeatAt = 0;
+  let nextBonusAt = Date.now() + randomBonusDelay();
+  let activeBonusOrb = null;
+
+  const ranks = [
+    { name: "Spark", need: 100 },
+    { name: "Pulse", need: 1000 },
+    { name: "Rift", need: 10000 },
+    { name: "Nova", need: 100000 },
+    { name: "Cosmic", need: 1000000 }
+  ];
+
+
+  function randomBonusDelay() {
+    return 18000 + Math.random() * 14000;
+  }
+
+  function isOvercharged() {
+    return Date.now() < overchargeUntil;
+  }
+
+
+  function isBangBangBangActive() {
+    return Date.now() < bangBangBangUntil;
+  }
+
+  function bangBangBangDurationMs() {
+    return 5000;
+  }
+
+  function bangBangBangCooldownMs() {
+    return 30000;
+  }
+
+  function createBangBangBangExplosion() {
+    document.getElementById("bbbOverlay")?.remove();
+
+    const overlay = document.createElement("div");
+    overlay.className = "bbb-overlay";
+    overlay.id = "bbbOverlay";
+
+    const title = document.createElement("div");
+    title.className = "bbb-title";
+    title.innerHTML = "BANG<br>BANG<br>BANG!";
+    overlay.appendChild(title);
+
+    const colors = ["#ffffff", "#ffe25b", "#ff9f21", "#ff3b25", "#ff4eea"];
+    for (let i = 0; i < 52; i++) {
+      const debris = document.createElement("div");
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 38 + Math.random() * 75;
+      debris.className = "bbb-debris";
+      debris.style.setProperty("--size", `${5 + Math.random() * 18}px`);
+      debris.style.setProperty("--dx", `${Math.cos(angle) * distance}vw`);
+      debris.style.setProperty("--dy", `${Math.sin(angle) * distance}vh`);
+      debris.style.setProperty("--start-rot", `${Math.random() * 180}deg`);
+      debris.style.setProperty("--end-rot", `${360 + Math.random() * 900}deg`);
+      debris.style.setProperty("--duration", `${.65 + Math.random() * .75}s`);
+      debris.style.setProperty("--delay", `${Math.random() * -.9}s`);
+      debris.style.setProperty("--debris-color", colors[Math.floor(Math.random() * colors.length)]);
+      overlay.appendChild(debris);
+    }
+
+    document.body.appendChild(overlay);
+    document.body.classList.add("bbb-running");
+  }
+
+  function stopBangBangBangVisuals() {
+    document.body.classList.remove("bbb-running");
+    document.getElementById("bbbOverlay")?.remove();
+  }
+
+  function activateBangBangBang() {
+    const now = Date.now();
+
+    if (isBangBangBangActive() || now < bangBangBangReadyAt) {
+      playTone(115, .1, "sawtooth", .03);
+      return;
+    }
+
+    bangBangBangUntil = now + bangBangBangDurationMs();
+    bangBangBangReadyAt = now + bangBangBangCooldownMs();
+    createBangBangBangExplosion();
+    showAchievement("BANG BANG BANG! 100 CPS — NO HEAT!");
+    playTone(65, .4, "sawtooth", .1);
+    setTimeout(() => playTone(95, .35, "square", .08), 100);
+    setTimeout(() => playTone(145, .3, "sawtooth", .07), 210);
+    update();
+  }
+
+  function comboMultiplier() {
+    if (combo >= 50) return 2;
+    if (combo >= 25) return 1.5;
+    if (combo >= 10) return 1.25;
+    return 1;
+  }
+
+
+  function smashMultiplier() {
+    return 25 + state.smashLevel * 15;
+  }
+
+  function smashCooldownMs() {
+    return Math.max(2000, 8000 - state.smashLevel * 750);
+  }
+
+
+  function heatCapacity() {
+    return 100 + state.heatCapacityLevel * 40;
+  }
+
+  function idleCoolingRate() {
+    return 0.8 + state.coolingLevel * 0.45;
+  }
+
+  function overheatCoolingRate() {
+    return 2.5 + state.coolingLevel * 0.8;
+  }
+
+  function heatGainMultiplier() {
+    return Math.max(0.35, 1 - state.heatEfficiencyLevel * 0.08);
+  }
+
+  function overheatDurationMs() {
+    return Math.max(1500, 4000 - state.rebootLevel * 350);
+  }
+
+  function redlinePower() {
+    return 1.5 + state.redlineLevel * 0.15;
+  }
+
+  function isOverheated() {
+    return Date.now() < overheatedUntil;
+  }
+
+  function redlineMultiplier() {
+    return !isOverheated() && state.heat >= heatCapacity() * 0.8 ? redlinePower() : 1;
+  }
+
+  function triggerOverheat() {
+    const duration = overheatDurationMs();
+    state.heat = heatCapacity();
+    overheatedUntil = Date.now() + duration;
+    combo = 0;
+    $("combo").textContent = "";
+    clearTimeout(comboTimer);
+    $("orbButton").classList.remove("overcharged-orb", "redline-orb");
+    $("orbButton").classList.add("overheated-orb");
+    showAchievement(`OVERHEATED! Orb controls locked for ${(duration / 1000).toFixed(2)} seconds`);
+    playTone(100, .35, "sawtooth", .08);
+  }
+
+  function addHeat(amount) {
+    if (isOverheated()) return;
+    const overchargeHeat = isOvercharged() ? 1.35 : 1;
+    const capacity = heatCapacity();
+    const gainedHeat = amount * overchargeHeat * heatGainMultiplier();
+    state.heat = Math.min(capacity, state.heat + gainedHeat);
+    lastHeatAt = Date.now();
+
+    if (state.heat >= capacity) {
+      triggerOverheat();
+    }
+  }
+
+  function load() {
+    try {
+      const saved = JSON.parse(localStorage.getItem("neonOrbClickerHeatCapacitySave"));
+      return { ...defaultState, ...(saved || {}) };
+    } catch {
+      return { ...defaultState };
+    }
+  }
+
+  function save() {
+    localStorage.setItem("neonOrbClickerHeatCapacitySave", JSON.stringify(state));
+    lastSave = Date.now();
+  }
+
+  function format(n) {
+    if (n < 1000) return Math.floor(n).toLocaleString();
+    const units = ["K", "M", "B", "T", "Qa", "Qi"];
+    let u = -1;
+    while (n >= 1000 && u < units.length - 1) {
+      n /= 1000;
+      u++;
+    }
+    return n.toFixed(n >= 100 ? 0 : n >= 10 ? 1 : 2) + units[u];
+  }
+
+  function multiplier() {
+    return Math.pow(2, state.multLevel);
+  }
+
+  function clickPower() {
+    const boost = isOvercharged() ? 2 : 1;
+    return (1 + state.powerLevel * 2) * multiplier() * boost;
+  }
+
+  function autoPower() {
+    const boost = isOvercharged() ? 2 : 1;
+    return (state.droneLevel + state.reactorLevel * 10) * multiplier() * boost;
+  }
+
+  function cost(base, level, growth) {
+    return Math.floor(base * Math.pow(growth, level));
+  }
+
+  function critChance() {
+    return Math.min(0.05 + state.critLevel * 0.025, 0.5);
+  }
+
+  function playTone(freq, duration = 0.07, type = "sine", volume = 0.05) {
+    if (!state.sound) return;
+    try {
+      audioCtx ??= new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    } catch {}
+  }
+
+
+  function playOfflineClickFallback() {
+    if (!state.sound) return;
+
+    try {
+      audioCtx ??= new (window.AudioContext || window.webkitAudioContext)();
+
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const filter = audioCtx.createBiquadFilter();
+
+      osc.type = "square";
+      osc.frequency.setValueAtTime(760, now);
+      osc.frequency.exponentialRampToValueAtTime(190, now + 0.045);
+
+      filter.type = "bandpass";
+      filter.frequency.value = 900;
+      filter.Q.value = 1.1;
+
+      gain.gain.setValueAtTime(0.075, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+
+      osc.connect(filter).connect(gain).connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.06);
+    } catch {}
+  }
+
+  function playOrbClickSound() {
+    if (!state.sound) return;
+
+    try {
+      if (!minecraftClickInitialized) {
+        minecraftClickAudio.src = minecraftClickUrl;
+        minecraftClickAudio.load();
+        minecraftClickInitialized = true;
+      }
+
+      minecraftClickAudio.pause();
+      minecraftClickAudio.currentTime = 0;
+
+      const promise = minecraftClickAudio.play();
+      if (promise && typeof promise.catch === "function") {
+        promise.catch(playOfflineClickFallback);
+      }
+    } catch {
+      playOfflineClickFallback();
+    }
+  }
+
+  function addOrbs(amount) {
+    state.orbs += amount;
+    state.total += amount;
+  }
+
+
+  function startBackgroundMusic() {
+    if (!state.music || musicStarted) return;
+
+    const host = $("musicPlayerHost");
+    const frame = document.createElement("iframe");
+    const params = new URLSearchParams({
+      autoplay: "1",
+      loop: "1",
+      playlist: backgroundMusicVideoId,
+      controls: "0",
+      playsinline: "1",
+      rel: "0"
+    });
+
+    frame.width = "200";
+    frame.height = "200";
+    frame.title = "Asian Orb Clicker background music";
+    frame.src = `https://www.youtube.com/embed/${backgroundMusicVideoId}?${params}`;
+    frame.allow = "autoplay; encrypted-media";
+    frame.setAttribute("frameborder", "0");
+
+    host.replaceChildren(frame);
+    musicStarted = true;
+    update();
+  }
+
+  function stopBackgroundMusic() {
+    $("musicPlayerHost").replaceChildren();
+    musicStarted = false;
+    update();
+  }
+
+  function clickOrb(event) {
+    if (event?.isTrusted && navigator.vibrate) {
+      navigator.vibrate(6);
+    }
+
+    if (isOverheated()) {
+      playTone(90, .08, "sawtooth", .025);
+      return;
+    }
+
+    let amount = clickPower() * redlineMultiplier();
+    combo++;
+    clearTimeout(comboTimer);
+
+    const comboBonus = 1 + Math.min(combo - 1, 20) * 0.03;
+    amount *= comboBonus * comboMultiplier();
+
+    const critical = Math.random() < critChance();
+    if (critical) amount *= 5;
+
+    state.charge = Math.min(100, state.charge + (critical ? 8 : 3));
+    addHeat(critical ? 7 : 4);
+    addOrbs(amount);
+    showClickText(event, amount, critical);
+    makeParticles(event, critical ? 22 : 11);
+
+    $("orbButton").classList.add("clicked");
+    setTimeout(() => $("orbButton").classList.remove("clicked"), 70);
+
+    const tier = comboMultiplier();
+    $("combo").textContent = combo >= 3
+      ? `COMBO x${combo}${tier > 1 ? ` • ${tier}× TIER` : ""}`
+      : "";
+    comboTimer = setTimeout(() => {
+      combo = 0;
+      $("combo").textContent = "";
+    }, 850);
+
+    playOrbClickSound();
+    if (critical) {
+      playTone(880, .15, "square", .055);
+    }
+    update();
+  }
+
+
+  function activateOvercharge() {
+    if (isOverheated() || isOvercharged() || state.charge < 100) {
+      playTone(150, .1, "sawtooth", .03);
+      return;
+    }
+
+    state.charge = 0;
+    overchargeUntil = Date.now() + 10000;
+    $("orbButton").classList.add("overcharged-orb");
+    showAchievement("BING CHA LING! Double income for 10 seconds");
+    playTone(420, .16, "square", .06);
+    setTimeout(() => playTone(620, .16, "square", .06), 100);
+    setTimeout(() => playTone(920, .2, "square", .05), 200);
+    update();
+  }
+
+  function powerSmash() {
+    const now = Date.now();
+    if (isOverheated() || now < smashReadyAt) {
+      playTone(130, .08, "sawtooth", .025);
+      return;
+    }
+
+    smashReadyAt = now + smashCooldownMs();
+    const amount = clickPower() * smashMultiplier() * comboMultiplier() * redlineMultiplier();
+    state.charge = Math.min(100, state.charge + 12);
+    addHeat(30);
+    addOrbs(amount);
+
+    const zone = $("orbZone");
+    const flash = document.createElement("div");
+    flash.className = "smash-flash";
+    zone.appendChild(flash);
+    setTimeout(() => flash.remove(), 520);
+
+    showClickText(null, amount, true);
+    makeParticles(null, 45);
+    playTone(95, .18, "sawtooth", .09);
+    setTimeout(() => playTone(190, .12, "square", .06), 70);
+    update();
+  }
+
+  function spawnBonusOrb() {
+    if (activeBonusOrb) return;
+
+    const zone = $("orbZone");
+    const orb = document.createElement("button");
+    orb.className = "bonus-orb";
+    orb.setAttribute("aria-label", "Bonus orb");
+
+    const maxX = Math.max(20, zone.clientWidth - 90);
+    const maxY = Math.max(20, zone.clientHeight - 90);
+    orb.style.left = `${20 + Math.random() * Math.max(1, maxX - 20)}px`;
+    orb.style.top = `${20 + Math.random() * Math.max(1, maxY - 20)}px`;
+
+    activeBonusOrb = orb;
+    zone.appendChild(orb);
+
+    const removeBonus = () => {
+      if (activeBonusOrb === orb) activeBonusOrb = null;
+      orb.remove();
+      nextBonusAt = Date.now() + randomBonusDelay();
+    };
+
+    orb.addEventListener("click", event => {
+      event.stopPropagation();
+      const reward = Math.max(100, clickPower() * 75 + autoPower() * 20);
+      addOrbs(reward);
+      state.charge = Math.min(100, state.charge + 25);
+      showClickText(event, reward, true);
+      makeParticles(event, 38);
+      showAchievement(`BONUS ORB! +${format(reward)} orbs`);
+      playTone(1000, .22, "triangle", .07);
+      removeBonus();
+      update();
+    });
+
+    setTimeout(() => {
+      if (activeBonusOrb === orb) removeBonus();
+    }, 8000);
+  }
+
+  function showClickText(event, amount, critical) {
+    const panel = $("gamePanel");
+    const rect = panel.getBoundingClientRect();
+    const orbRect = $("orbButton").getBoundingClientRect();
+    const x = event?.clientX ?? (orbRect.left + orbRect.width / 2);
+    const y = event?.clientY ?? (orbRect.top + orbRect.height / 2);
+
+    const el = document.createElement("div");
+    el.className = "click-text";
+    el.textContent = critical ? `CRIT! +${format(amount)}` : `+${format(amount)}`;
+    el.style.left = `${x - rect.left}px`;
+    el.style.top = `${y - rect.top}px`;
+    if (critical) {
+      el.style.color = "#ffe25b";
+      el.style.fontSize = "31px";
+    }
+    panel.appendChild(el);
+    setTimeout(() => el.remove(), 950);
+  }
+
+  function makeParticles(event, count) {
+    const panel = $("gamePanel");
+    const rect = panel.getBoundingClientRect();
+    const orbRect = $("orbButton").getBoundingClientRect();
+    const x = (event?.clientX ?? (orbRect.left + orbRect.width / 2)) - rect.left;
+    const y = (event?.clientY ?? (orbRect.top + orbRect.height / 2)) - rect.top;
+    const colors = ["#35f3ff", "#4b79ff", "#ff4eea", "#ffe25b", "#ffffff"];
+
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement("div");
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 45 + Math.random() * 105;
+      p.className = "particle";
+      p.style.left = `${x}px`;
+      p.style.top = `${y}px`;
+      p.style.color = colors[Math.floor(Math.random() * colors.length)];
+      p.style.background = "currentColor";
+      p.style.setProperty("--dx", `${Math.cos(angle) * dist}px`);
+      p.style.setProperty("--dy", `${Math.sin(angle) * dist}px`);
+      panel.appendChild(p);
+      setTimeout(() => p.remove(), 700);
+    }
+  }
+
+  function buy(type) {
+    const defs = {
+      power: { base: 10, growth: 1.55, key: "powerLevel" },
+      drone: { base: 50, growth: 1.7, key: "droneLevel" },
+      reactor: { base: 250, growth: 1.82, key: "reactorLevel" },
+      crit: { base: 400, growth: 2.05, key: "critLevel" },
+      mult: { base: 1200, growth: 3.2, key: "multLevel" },
+      smash: { base: 750, growth: 2.2, key: "smashLevel" },
+      heatCapacity: { base: 900, growth: 2.05, key: "heatCapacityLevel" },
+      cooling: { base: 1100, growth: 2.0, key: "coolingLevel" },
+      heatEfficiency: { base: 1500, growth: 2.15, key: "heatEfficiencyLevel" },
+      reboot: { base: 2200, growth: 2.25, key: "rebootLevel" },
+      redline: { base: 3000, growth: 2.35, key: "redlineLevel" }
+    };
+
+    const d = defs[type];
+    const price = cost(d.base, state[d.key], d.growth);
+    if (state.orbs < price) {
+      playTone(130, .12, "sawtooth", .035);
+      return;
+    }
+
+    state.orbs -= price;
+    state[d.key]++;
+    playTone(660, .12, "triangle", .06);
+    setTimeout(() => playTone(900, .12, "triangle", .04), 70);
+    update();
+    save();
+  }
+
+  function updateRank() {
+    let nextRank = ranks[ranks.length - 1];
+    let previousNeed = 0;
+    let unlockedRank = "Spark";
+
+    for (const rank of ranks) {
+      if (state.total >= rank.need) {
+        unlockedRank = rank.name;
+        previousNeed = rank.need;
+      } else {
+        nextRank = rank;
+        break;
+      }
+    }
+
+    const maxed = state.total >= ranks[ranks.length - 1].need;
+    const range = Math.max(1, nextRank.need - previousNeed);
+    const pct = maxed ? 100 : Math.max(0, Math.min(100, ((state.total - previousNeed) / range) * 100));
+
+    $("rankName").textContent = maxed ? "Cosmic" : nextRank.name;
+    $("rankBar").style.width = `${pct}%`;
+    $("rankText").textContent = maxed
+      ? `${format(state.total)} total orbs — MAX RANK`
+      : `${format(state.total)} / ${format(nextRank.need)} total orbs`;
+
+    const orb = $("orbButton");
+    orb.classList.remove("rank-spark", "rank-pulse", "rank-rift", "rank-nova", "rank-cosmic");
+    orb.classList.add(`rank-${unlockedRank.toLowerCase()}`);
+    orb.title = `${unlockedRank} Orb`;
+  }
+
+  function checkAchievements() {
+    const marks = [
+      [100, "First Spark — 100 total orbs!"],
+      [1000, "Orb Hunter — 1,000 total orbs!"],
+      [10000, "Neon Master — 10,000 total orbs!"],
+      [100000, "Orb Legend — 100,000 total orbs!"]
+    ];
+
+    for (const [value, text] of marks) {
+      const key = "ach_" + value;
+      if (state.total >= value && !localStorage.getItem(key)) {
+        localStorage.setItem(key, "1");
+        showAchievement(text);
+        break;
+      }
+    }
+  }
+
+  function showAchievement(text) {
+    const a = $("achievement");
+    a.textContent = "🏆 " + text;
+    a.classList.add("show");
+    playTone(523, .18, "triangle", .06);
+    setTimeout(() => playTone(659, .18, "triangle", .06), 140);
+    setTimeout(() => playTone(784, .25, "triangle", .06), 280);
+    setTimeout(() => a.classList.remove("show"), 3000);
+  }
+
+  function update() {
+    $("orbs").textContent = format(state.orbs);
+    $("perClick").textContent = format(clickPower());
+    $("perSecond").textContent = format(autoPower());
+
+    const entries = [
+      ["power", 10, 1.55, "powerLevel"],
+      ["drone", 50, 1.7, "droneLevel"],
+      ["reactor", 250, 1.82, "reactorLevel"],
+      ["crit", 400, 2.05, "critLevel"],
+      ["mult", 1200, 3.2, "multLevel"],
+      ["smash", 750, 2.2, "smashLevel"],
+      ["heatCapacity", 900, 2.05, "heatCapacityLevel"],
+      ["cooling", 1100, 2.0, "coolingLevel"],
+      ["heatEfficiency", 1500, 2.15, "heatEfficiencyLevel"],
+      ["reboot", 2200, 2.25, "rebootLevel"],
+      ["redline", 3000, 2.35, "redlineLevel"]
+    ];
+
+    for (const [name, base, growth, key] of entries) {
+      const c = cost(base, state[key], growth);
+      $(name + "Cost").textContent = format(c);
+      $(name + "Level").textContent = "Lv. " + state[key];
+      $(name + "Upgrade").disabled = state.orbs < c;
+    }
+
+    $("musicBtn").textContent = state.music
+      ? (musicStarted ? "🎵 Music: On" : "🎵 Start Music (Internet)")
+      : "🎵 Music: Off";
+    $("soundBtn").textContent = state.sound
+      ? "🔊 Minecraft Click: On"
+      : "🔇 Minecraft Click: Off";
+
+    const overchargeLeft = Math.max(0, overchargeUntil - Date.now());
+    const smashLeft = Math.max(0, smashReadyAt - Date.now());
+    const bbbLeft = Math.max(0, bangBangBangUntil - Date.now());
+    const bbbCooldownLeft = Math.max(0, bangBangBangReadyAt - Date.now());
+
+    $("chargeFill").style.width = `${state.charge}%`;
+    $("overchargeAbility").classList.toggle("ready", state.charge >= 100 && !isOvercharged());
+    $("overchargeAbility").classList.toggle("active", isOvercharged());
+    $("chargeText").textContent = isOvercharged()
+      ? `ACTIVE: ${(overchargeLeft / 1000).toFixed(1)}s remaining`
+      : state.charge >= 100
+        ? "READY — press E"
+        : `Charge: ${Math.floor(state.charge)}%`;
+
+    $("smashAbility").classList.toggle("ready", smashLeft <= 0);
+    const smashPower = smashMultiplier();
+    const smashCooldown = smashCooldownMs() / 1000;
+    $("smashStatus").textContent = smashLeft <= 0
+      ? `Ready: ${smashPower}× power • ${smashCooldown.toFixed(2)}s cooldown`
+      : `Cooldown: ${(smashLeft / 1000).toFixed(1)}s • ${smashPower}× power`;
+
+    const bbbActive = isBangBangBangActive();
+    $("bbbAbility").classList.toggle("active", bbbActive);
+    $("bbbAbility").classList.toggle("ready", !bbbActive && bbbCooldownLeft <= 0);
+    $("bbbStatus").textContent = bbbActive
+      ? `ACTIVE: 100 CPS • ${(bbbLeft / 1000).toFixed(1)}s left • no heat`
+      : bbbCooldownLeft > 0
+        ? `Cooldown: ${(bbbCooldownLeft / 1000).toFixed(1)}s`
+        : "Ready: 100 CPS for 5 seconds • no heat";
+
+    if (!bbbActive && document.body.classList.contains("bbb-running")) {
+      stopBangBangBangVisuals();
+    }
+
+    if (!isOvercharged()) $("orbButton").classList.remove("overcharged-orb");
+
+    const overheated = isOverheated();
+    const capacity = heatCapacity();
+    const heat = Math.max(0, Math.min(capacity, state.heat));
+    const heatPercent = capacity > 0 ? (heat / capacity) * 100 : 0;
+    const heatLeft = Math.max(0, overheatedUntil - Date.now());
+
+    $("heatFill").style.width = `${heatPercent}%`;
+    $("heatNumber").textContent = `${Math.ceil(heat)} / ${capacity}`;
+    $("heatSystem").classList.toggle("warm", heatPercent >= 50 && heatPercent < 80 && !overheated);
+    $("heatSystem").classList.toggle("hot", heatPercent >= 80 && !overheated);
+    $("heatSystem").classList.toggle("overheated", overheated);
+    $("orbButton").classList.toggle("redline-orb", heatPercent >= 80 && !overheated);
+    $("orbButton").classList.toggle("overheated-orb", overheated);
+    $("orbWrap").classList.toggle("overheated", overheated);
+    $("orbButton").disabled = overheated;
+
+    const heatReduction = Math.round((1 - heatGainMultiplier()) * 100);
+    $("heatStatus").textContent = overheated
+      ? `OVERHEATED — rebooting in ${(heatLeft / 1000).toFixed(1)}s`
+      : heatPercent >= 80
+        ? `REDLINE — ${redlinePower().toFixed(2)}× manual power`
+        : heatPercent >= 50
+          ? `Warm — ${heatReduction}% heat reduction • cooling ${idleCoolingRate().toFixed(2)}`
+          : `Capacity ${capacity} • cooling ${idleCoolingRate().toFixed(2)} • ${heatReduction}% less heat`;
+
+    updateRank();
+    checkAchievements();
+  }
+
+  $("orbButton").addEventListener("click", clickOrb);
+  $("smashAbility").addEventListener("click", powerSmash);
+  $("overchargeAbility").addEventListener("click", activateOvercharge);
+  $("powerUpgrade").addEventListener("click", () => buy("power"));
+  $("droneUpgrade").addEventListener("click", () => buy("drone"));
+  $("reactorUpgrade").addEventListener("click", () => buy("reactor"));
+  $("critUpgrade").addEventListener("click", () => buy("crit"));
+  $("multUpgrade").addEventListener("click", () => buy("mult"));
+  $("smashUpgrade").addEventListener("click", () => buy("smash"));
+  $("heatCapacityUpgrade").addEventListener("click", () => buy("heatCapacity"));
+  $("bbbAbility").addEventListener("click", activateBangBangBang);
+  $("coolingUpgrade").addEventListener("click", () => buy("cooling"));
+  $("heatEfficiencyUpgrade").addEventListener("click", () => buy("heatEfficiency"));
+  $("rebootUpgrade").addEventListener("click", () => buy("reboot"));
+  $("redlineUpgrade").addEventListener("click", () => buy("redline"));
+
+  $("musicBtn").addEventListener("click", () => {
+    if (musicStarted) {
+      state.music = false;
+      stopBackgroundMusic();
+    } else {
+      state.music = true;
+      startBackgroundMusic();
+    }
+    update();
+    save();
+  });
+
+  $("soundBtn").addEventListener("click", () => {
+    state.sound = !state.sound;
+    update();
+    save();
+  });
+
+  $("resetBtn").addEventListener("click", () => {
+    if (!confirm("Reset all orb progress?")) return;
+    stopBackgroundMusic();
+    state = { ...defaultState };
+    bangBangBangUntil = 0;
+    bangBangBangReadyAt = 0;
+    stopBangBangBangVisuals();
+    localStorage.removeItem("neonOrbClickerHeatCapacitySave");
+    Object.keys(localStorage)
+      .filter(k => k.startsWith("ach_"))
+      .forEach(k => localStorage.removeItem(k));
+    update();
+    save();
+  });
+
+  function setMobileView(view) {
+    document.body.classList.toggle("mobile-view-play", view === "play");
+    document.body.classList.toggle("mobile-view-shop", view === "shop");
+    $("mobilePlayBtn").classList.toggle("active", view === "play");
+    $("mobileShopBtn").classList.toggle("active", view === "shop");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  $("mobilePlayBtn").addEventListener("click", () => setMobileView("play"));
+  $("mobileShopBtn").addEventListener("click", () => setMobileView("shop"));
+
+  if (window.matchMedia("(max-width: 760px)").matches) {
+    setMobileView("play");
+  }
+
+  window.matchMedia("(max-width: 760px)").addEventListener?.("change", event => {
+    if (event.matches) {
+      setMobileView("play");
+    } else {
+      document.body.classList.remove("mobile-view-play", "mobile-view-shop");
+    }
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.repeat) return;
+
+    if (e.code === "Space") {
+      e.preventDefault();
+      clickOrb();
+    } else if (e.code === "KeyQ") {
+      powerSmash();
+    } else if (e.code === "KeyE") {
+      activateOvercharge();
+    } else if (e.code === "KeyR") {
+      activateBangBangBang();
+    }
+  });
+
+  setInterval(() => {
+    const now = Date.now();
+
+    if (isOverheated()) {
+      state.heat = Math.max(0, state.heat - overheatCoolingRate());
+    } else if (now - lastHeatAt > 450) {
+      state.heat = Math.max(0, state.heat - idleCoolingRate());
+    }
+
+    const amount = autoPower() / 10;
+    if (amount > 0) addOrbs(amount);
+
+    // Ten click rewards every 100 ms = 100 clicks per second.
+    // This directly awards click income and intentionally never calls addHeat().
+    if (isBangBangBangActive()) {
+      const bangBangBangIncome = clickPower() * 10;
+      addOrbs(bangBangBangIncome);
+
+      if (Math.floor(now / 300) !== Math.floor((now - 100) / 300)) {
+        showClickText(null, bangBangBangIncome * 3, true);
+        makeParticles(null, 18);
+      }
+    }
+
+    if (!activeBonusOrb && Date.now() >= nextBonusAt) spawnBonusOrb();
+    if (Date.now() - lastSave > 5000) save();
+    update();
+  }, 100);
+
+  window.addEventListener("beforeunload", save);
+
+  update();
+})();
+</script>
+</body>
+</html>

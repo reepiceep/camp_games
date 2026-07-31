@@ -14,5 +14,7 @@ A collection of standalone HTML5 games. Open `index.html` for the arcade hub tha
 | `turbo_kart_rush.html` | Turbo Kart Rush | Kart racer — drift, boost, and unlock karts in the garage. |
 | `block_heroes_tower_defence_upgrades.html` | Block Heroes Tower Defence | Tower defense — place and evolve heroes, stop a two-phase boss. |
 | `neon_dash_poc.html` | Neon Dash | Fast neon endless runner, two levels. |
+| `clockwork_wave_dash.html` | Clockwork Wave Dash | Wave-style flying dash through a steampunk city with a giant boss fight on Hard. |
+| `orb_clicker_mobile.html` | Asian Orb Clicker | Idle/active clicker with abilities, a heat/overheat system, and mobile-first controls. |
 
 External (not a local file): **GPT Street Fighter** — linked from the hub at `https://gtpstreetfighter.vercel.app/`.
